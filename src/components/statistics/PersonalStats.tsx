@@ -11,11 +11,9 @@ import * as React from "react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGetStats } from "../../lib/dataAdapter";
-import {
-  getFinishedGameStatsFromLocalStorage,
-  loadGameStateFromLocalStorageNew,
-} from "../../lib/localStorage";
 import { logMyEvent } from "../../lib/settingsFirebase";
+import { usePlayer } from "../../lib/PlayerContext";
+import { useGameHistory, usePersonalStats } from "../../lib/syncService";
 import MyAlert from "../alerts/MyAlert";
 import MainLoader from "../muiStyled/MainLoader";
 import { HistoryDayCard } from "./HistoryDayCard";
@@ -23,9 +21,11 @@ import PageTitle from "./PageTitle";
 import { getPersonalScore } from "./statisticsLib";
 
 const Statistics = () => {
-  /*const [faqData, faqLoading, faqError] = useGetFaq();*/
-  const personalStats = getFinishedGameStatsFromLocalStorage();
-  const myStatsLocalStorage = loadGameStateFromLocalStorageNew();
+  const { token } = usePlayer();
+  const { stats: personalStats, loading: loadingPersonalStats } =
+    usePersonalStats(token);
+  const { history: myStatsLocalStorage, loading: loadingHistory } =
+    useGameHistory(token);
   const [stats, loadingStats, errorStats] = useGetStats();
   const navigate = useNavigate();
 
@@ -37,10 +37,10 @@ const Statistics = () => {
     () =>
       myStatsLocalStorage ? getPersonalScore(myStatsLocalStorage, stats) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats]
+    [stats, myStatsLocalStorage]
   );
 
-  if (loadingStats) {
+  if (loadingStats || loadingHistory || loadingPersonalStats) {
     return <MainLoader title="Načítám statistiku hráčů...." />;
   }
 
@@ -110,38 +110,5 @@ const Statistics = () => {
     </Box>
   );
 };
-
-// <Grid container spacing={2}>
-// <Grid item xs={12}>
-//   <ChartBar distribution={personalStats.guessesDistribution} />
-// </Grid>
-// </Grid>
-
-// <Grid container spacing={2}>
-// <Grid item xs={12}>
-//   <Typography sx={{ mt: 3 }}>
-//     Graf výše znázorňuje počet jednotlivých her dokončených na uvedený
-//     počet pokusů. Např. hodnota 2 ve sloupci 3 znamená, že jste 2 hry
-//     dokončil/a na 3. uhodnuté slovo. Sloupec "N" značí prohru, kdy dané
-//     slovo nebylo uhodnuto ani na 6.pokus.
-//   </Typography>
-//   <Typography>
-//     Zaznamenávání odehraných her bylo spuštěno až 23.1. Do té doby
-//     nemusí být data přesná a mohou vykazovat nepřesnosti. Omlouvám se.
-//   </Typography>
-// </Grid>
-// </Grid>
-// <Grid container spacing={2} justifyContent="flex-center">
-// <Grid item xs={12}>
-//   <Button
-//     variant="outlined"
-//     onClick={() => {
-//       navigate("/history");
-//     }}
-//   >
-//     Porovnání vašich výsledků s ostatními hráči
-//   </Button>
-// </Grid>
-// </Grid>
 
 export default Statistics;

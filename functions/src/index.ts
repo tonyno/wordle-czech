@@ -94,6 +94,79 @@ exports.statisticsTest = functions.https.onRequest(
   }
 );
 
+exports.statisticsNew = functions
+  .runWith({ timeoutSeconds: 2 * 60 })
+  .pubsub.schedule("every day 18:10")
+  .timeZone("Europe/Prague")
+  .onRun(async (context) => {
+    const solutionIndex = getWordIndex() - 1;
+    functions.logger.info("statisticsNew: processing day " + solutionIndex);
+    await statisticsNewForDay(solutionIndex);
+    await statisticsNewForDay(solutionIndex - 7);
+  });
+
+const statisticsNewForDay = async (solutionIndex: number) => {
+  const day = "day" + solutionIndex;
+  const dateStr = dateToStr(getDateFromSolutionIndex(solutionIndex));
+  const solutionRecord = await getSolutionDataFromDb(dateStr);
+  const solutionWord = solutionRecord ? solutionRecord?.solution : undefined;
+
+  const guessesDistribution = [0, 0, 0, 0, 0, 0, 0];
+  let winCount = 0;
+  let looseCount = 0;
+  const firstWords: FirstWords = {};
+
+  const querySnapshot = await db
+    .collection("gameResult")
+    .doc(day)
+    .collection("result")
+    .get();
+
+  querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    if (data.result === "win") {
+      guessesDistribution[data.numberOfGuesses] += 1;
+      winCount += 1;
+    } else if (data.result === "loose") {
+      guessesDistribution[6] += 1;
+      looseCount += 1;
+    }
+    if (data.guesses && data.guesses.length > 0) {
+      const firstWord = data.guesses[0];
+      if (firstWord in firstWords) {
+        firstWords[firstWord] += 1;
+      } else {
+        firstWords[firstWord] = 1;
+      }
+    }
+  });
+
+  const firstWordsSliced = Object.entries(firstWords)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map((item) => {
+      return { word: item[0], count: item[1] };
+    });
+
+  const statsResult: StatsDay = {
+    dateStr: dateStr,
+    games: looseCount + winCount,
+    loose: looseCount,
+    win: winCount,
+    guessesDistribution: guessesDistribution,
+    firstGuesses: firstWordsSliced,
+    score: calculateStatsScore(guessesDistribution),
+    solutionIndex: solutionIndex,
+    solution: solutionWord,
+  };
+
+  // Write one doc per day — no size limit issues
+  const docId = "wordle5_day" + solutionIndex;
+  const entry = db.collection("dailyStats").doc(docId);
+  await entry.set(statsResult);
+  functions.logger.info("statisticsNew: saved " + docId, statsResult);
+};
+
 const statisticsForDay = async (solutionIndex: number) => {
   const now = new Date();
   const day = "day" + solutionIndex;

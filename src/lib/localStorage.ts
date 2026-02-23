@@ -265,6 +265,7 @@ export type SettingsItem = {
   bigFont: boolean;
   nickname?: string;
   userId?: string;
+  token?: string;
 };
 
 export const getSettings = (

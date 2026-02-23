@@ -16,10 +16,6 @@ service cloud.firestore {
       allow write: if true;
     }
     
-    match /faq/{document=**} {
-      allow read: if true;
-    }
-    
     match /content/{document=**} {
       allow read: if true;
     }    
@@ -27,10 +23,6 @@ service cloud.firestore {
     match /word/{document=**} {
       allow read: if !resource.data.locked;
     }
-    
-    match /stats/{document=**} {
-      allow read: if true;
-    }    
 
     match /gameStats/{document=**} {
       allow get: if true;
@@ -47,7 +39,44 @@ service cloud.firestore {
     match /savedGames/{document=**} {
       allow get, create, update: if true;
     }  
+    
+    // New player collection - token as secret (knowing the path = having access)
+    match /players/{token} {
+      allow read, write: if true;
+      match /games/{gameId} {
+        allow read, write: if true;
+      }
+      match /stats/{gameType} {
+        allow read, write: if true;
+      }
+    }
 
+    match /dailyStats/{document=**} {
+      allow read: if true;
+    }
+
+
+		// Deleted
+    
+    match /stats/{document=**} {
+      allow read, write: if false;
+    }   
+
+    match /test_word5/{document=**} {
+      allow read, write: if false;
+    } 
+
+    match /test_word6/{document=**} {
+      allow read, write: if false;
+    } 
+    
+    match /word2/{document=**} {
+      allow read, write: if false;
+    }
+    
+    match /faq/{document=**} {
+      allow read, write: if false;
+    } 
   }
 }
 

@@ -1,14 +1,38 @@
-import { GoogleAuthProvider, User, signInWithPopup } from "firebase/auth";
-import { saveGamesForLoggedUser } from "./dataAdapter";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "./settingsFirebase";
+import { getPlayerByGoogleUid, linkGoogleUid } from "./playerService";
+import { mergeTokens } from "./playerService";
+import { getToken, setToken } from "./syncService";
 
-export const signInWithGoogle = async () => {
-  // https://www.youtube.com/watch?v=2-LISBTczQE&t=27s
-  const provider = new GoogleAuthProvider(); // https://firebase.google.com/docs/auth/web/google-signin#web-version-9
+export const signInWithGoogle = async (): Promise<{
+  success: boolean;
+  switchedToken?: string;
+}> => {
+  const provider = new GoogleAuthProvider();
   try {
-    await signInWithPopup(auth, provider); // https://firebase.google.com/docs/auth/web/google-signin#web-version-9
+    const result = await signInWithPopup(auth, provider);
+    const uid = result.user.uid;
+    const currentToken = getToken();
+    if (!currentToken) return { success: false };
+
+    // Check if this Google account already has a player
+    const existing = await getPlayerByGoogleUid(uid);
+    if (existing) {
+      // Merge current token into existing token and switch
+      if (existing.token !== currentToken) {
+        await mergeTokens(currentToken, existing.token);
+        setToken(existing.token);
+        return { success: true, switchedToken: existing.token };
+      }
+      return { success: true };
+    }
+
+    // Link current token to this Google UID
+    await linkGoogleUid(currentToken, uid);
+    return { success: true };
   } catch (error) {
     console.error(error);
+    return { success: false };
   }
 };
 
@@ -17,11 +41,5 @@ export const signOutUser = async () => {
     await auth.signOut();
   } catch (error) {
     console.error(error);
-  }
-};
-
-export const saveGames = (user: User | undefined | null) => {
-  if (user?.uid) {
-    saveGamesForLoggedUser(user?.uid);
   }
 };

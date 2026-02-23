@@ -5,14 +5,17 @@ import {
   CardContent,
   Container,
   Grid,
+  IconButton,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import ShareIcon from "@mui/icons-material/Share";
 import * as React from "react";
 import { useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { saveGames, signInWithGoogle } from "../../lib/authorization";
+import { signInWithGoogle, signOutUser } from "../../lib/authorization";
 import {
   saveAllResultsToFirebase,
   saveSharedResult,
@@ -22,29 +25,26 @@ import {
   getSettings,
   saveSettings,
 } from "../../lib/localStorage";
+import { usePlayer } from "../../lib/PlayerContext";
 import { auth, logMyEvent } from "../../lib/settingsFirebase";
+import { canShare } from "../../lib/share";
 import { Cell } from "../grid/Cell";
+import EnterTokenModal from "../modals/EnterTokenModal";
 import PageTitle from "../statistics/PageTitle";
 
 type PropType = {
   onThemeChange: (settings: SettingsItem) => void;
 };
 
-// type Report = {
-//   previousIdentifierExists: boolean | undefined;
-// };
-
 const Settings = ({ onThemeChange }: PropType) => {
-  //const navigate = useNavigate();
   const [data, setData] = useState<SettingsItem>(getSettings());
-  //const [mergeIdentifier, setMergeIdentifier] = useState<string>("");
   const [canBeUploadedToServer, setCanBeUploadedToServer] =
     useState<boolean>(true);
-  // const [report, setReport] = useState<Report>({
-  //   previousIdentifierExists: undefined,
-  // });
   const [user] = useAuthState(auth);
-  console.log("USER ", user?.uid);
+  const { token, refreshToken } = usePlayer();
+  const [tokenModalOpen, setTokenModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [googleAuthStatus, setGoogleAuthStatus] = useState<string>("");
 
   React.useEffect(() => {
     logMyEvent("settings");
@@ -78,14 +78,37 @@ const Settings = ({ onThemeChange }: PropType) => {
     await saveSharedResult();
   };
 
-  // const loadFromOldIdentifier = async () => {
-  //   const data = await getAllResultsFromFirebase(mergeIdentifier);
-  //   setReport({ ...report, previousIdentifierExists: data.exists() });
-  //   if (!data.exists()) {
-  //     return;
-  //   }
-  //   console.log(data);
-  // };
+  const handleGoogleLogin = async () => {
+    setGoogleAuthStatus("Přihlašování...");
+    const result = await signInWithGoogle();
+    if (result.success) {
+      if (result.switchedToken) {
+        refreshToken();
+        setGoogleAuthStatus("Přihlášeno a sloučeno s existujícím účtem!");
+      } else {
+        setGoogleAuthStatus("Google účet propojen!");
+      }
+    } else {
+      setGoogleAuthStatus("Přihlášení se nezdařilo.");
+    }
+  };
+
+  const handleCopyToken = () => {
+    if (token) {
+      navigator.clipboard.writeText(token);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleShareToken = () => {
+    if (token && navigator.share) {
+      navigator.share({
+        title: "Hádej Slova - Můj kód",
+        text: `Můj kód pro synchronizaci: ${token}`,
+      });
+    }
+  };
 
   return (
     <Container maxWidth="md">
@@ -164,6 +187,100 @@ const Settings = ({ onThemeChange }: PropType) => {
             <Grid container spacing={1}>
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom component="div">
+                  Synchronizace napříč zařízeními
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Váš kód pro synchronizaci. Zadejte ho na jiném zařízení pro
+                  přístup ke svým hrám.
+                </Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Typography
+                    sx={{
+                      fontFamily: "monospace",
+                      fontSize: "1.2rem",
+                      fontWeight: "bold",
+                      letterSpacing: "0.15em",
+                    }}
+                  >
+                    {token || "Načítání..."}
+                  </Typography>
+                  <IconButton size="small" onClick={handleCopyToken}>
+                    <ContentCopyIcon fontSize="small" />
+                  </IconButton>
+                  {canShare() && (
+                    <IconButton size="small" onClick={handleShareToken}>
+                      <ShareIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  {copied && (
+                    <Typography variant="caption" color="success.main">
+                      Zkopírováno!
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Button
+                  variant="outlined"
+                  onClick={() => setTokenModalOpen(true)}
+                  sx={{ mt: 1 }}
+                >
+                  Zadat kód z jiného zařízení
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ maxWidth: "md", mt: "1rem" }}>
+          <CardContent>
+            <Grid container spacing={1}>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom component="div">
+                  Přihlášení přes Google
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Propojte svůj Google účet pro automatickou synchronizaci na všech zařízeních.
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                {user ? (
+                  <Box>
+                    <Typography variant="body2">
+                      Přihlášen jako: {user.email}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      onClick={signOutUser}
+                      sx={{ mt: 1 }}
+                    >
+                      Odhlásit se
+                    </Button>
+                  </Box>
+                ) : (
+                  <Button variant="contained" onClick={handleGoogleLogin}>
+                    Login přes Google
+                  </Button>
+                )}
+                {googleAuthStatus && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {googleAuthStatus}
+                  </Typography>
+                )}
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ maxWidth: "md", mt: "1rem" }}>
+          <CardContent>
+            <Grid container spacing={1}>
+              <Grid item xs={12}>
+                <Typography variant="h6" gutterBottom component="div">
                   Ukládání výsledků do cloudu
                 </Typography>
               </Grid>
@@ -187,21 +304,8 @@ const Settings = ({ onThemeChange }: PropType) => {
                 </Button>
               </Grid>
               <Grid item xs={12}>
-                {/* <Typography>
-                  Pokud chcete nasdílet své výsledky svým kamarádům, požádejte
-                  je aby otevřeli následující odkaz. Tento odkaz vás automaticky
-                  přidá do jejich sledování. Díky tomu budou moci každý den
-                  porovnat své výsledky s vámi.{" "}
-                  <Typography>
-                    Pokud naopak chcete vy sledovat své kamarády, požádejte je
-                    aby vám zaslali svůj odkaz.
-                  </Typography>
-                </Typography>
-                <Typography sx={{ mt: "1rem" }}>Odkaz pro sdílení:</Typography>
-                <Typography sx={{ mt: "0.5rem" }}></Typography>
-                <code>{"https://hadejslova.cz/follow/" + data.userId}</code> */}
-                <Typography>
-                  Váš soukromý identifikátor (ponechte v soukromí):
+                <Typography variant="body2">
+                  Váš soukromý identifikátor (starý systém):
                 </Typography>
                 <code>{data.userId}</code>{" "}
                 <Button
@@ -216,32 +320,12 @@ const Settings = ({ onThemeChange }: PropType) => {
             </Grid>
           </CardContent>
         </Card>
-
-        <Card sx={{ maxWidth: "md", mt: "1rem" }}>
-          <CardContent>
-            <Grid container spacing={1}>
-              <Grid item xs={12}>
-                <Typography sx={{ color: "red" }}>
-                  Zatim nefunkcni, makam na tom.
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Button variant="contained" onClick={signInWithGoogle}>
-                  Login přes Google
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => saveGames(user)}
-                  disabled={!user}
-                  sx={{ ml: 1 }}
-                >
-                  Ulozit data na server
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
       </Box>
+
+      <EnterTokenModal
+        open={tokenModalOpen}
+        onClose={() => setTokenModalOpen(false)}
+      />
     </Container>
   );
 };

@@ -16,9 +16,11 @@ import Settings from "./components/settings/Settings";
 import AllUsersStatsDay from "./components/statistics/AllUsersStatsDay";
 import History from "./components/statistics/History";
 import PersonalStats from "./components/statistics/PersonalStats";
+import TokenDisplay from "./components/TokenDisplay";
 import Welcome from "./components/Welcome";
 import WordlePlayWrapper from "./components/WordlePlayWrapper";
 import { firstTimeVisit, getSettings, SettingsItem } from "./lib/localStorage";
+import { PlayerProvider } from "./lib/PlayerContext";
 import { ApplicationContext } from "./lib/playContext";
 import { getWordIndex } from "./lib/words";
 import { getDesignTheme } from "./theme";
@@ -43,7 +45,6 @@ function App() {
   >(undefined);
 
   const setNewMessage = (newMessage: string) => {
-    //console.log("NEW message ", newMessage);
     setDifferentTopMessage(newMessage);
   };
 
@@ -60,50 +61,51 @@ function App() {
     <StyledEngineProvider injectFirst>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
-          <TopMenu
-            appContext={appContext}
-            differentTopMessage={differentTopMessage}
-          />
-          <Routes>
-            <Route
-              path="/"
-              element={
-                firstTime ? (
-                  <Welcome startGame={() => setFirstTime(false)} />
-                ) : (
-                  <WordlePlayWrapper
-                    appContext={appContext}
-                    setNewMessage={setNewMessage}
-                  />
-                )
-              }
+        <PlayerProvider>
+          <BrowserRouter>
+            <TopMenu
+              appContext={appContext}
+              differentTopMessage={differentTopMessage}
             />
-            <Route
-              path="/day/:solutionIndex"
-              element={<HistoryPlay setNewMessage={setNewMessage} />}
-            />
-            <Route
-              path="/stats/:solutionIndex"
-              element={<AllUsersStatsDay setNewMessage={setNewMessage} />}
-            />
-            <Route path="/faq" element={<Faq />} />
-            <Route path="/policy" element={<Policy />} />
-            <Route path="/mystats" element={<PersonalStats />} />
-            <Route path="/history" element={<History />} />
-            <Route
-              path="/follow/:followLink"
-              element={<IncomingFollowLink />}
-            />
-            <Route
-              path="/settings"
-              element={<Settings onThemeChange={themeChange} />}
-            />
-            <Route path="/localstorage" element={<DumpLocalStorage />} />
-          </Routes>
-
-          {/*<button onClick={changeWord}>ds</button>*/}
-        </BrowserRouter>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  firstTime ? (
+                    <Welcome startGame={() => setFirstTime(false)} />
+                  ) : (
+                    <WordlePlayWrapper
+                      appContext={appContext}
+                      setNewMessage={setNewMessage}
+                    />
+                  )
+                }
+              />
+              <Route
+                path="/day/:solutionIndex"
+                element={<HistoryPlay setNewMessage={setNewMessage} />}
+              />
+              <Route
+                path="/stats/:solutionIndex"
+                element={<AllUsersStatsDay setNewMessage={setNewMessage} />}
+              />
+              <Route path="/faq" element={<Faq />} />
+              <Route path="/policy" element={<Policy />} />
+              <Route path="/mystats" element={<PersonalStats />} />
+              <Route path="/history" element={<History />} />
+              <Route
+                path="/follow/:followLink"
+                element={<IncomingFollowLink />}
+              />
+              <Route
+                path="/settings"
+                element={<Settings onThemeChange={themeChange} />}
+              />
+              <Route path="/localstorage" element={<DumpLocalStorage />} />
+            </Routes>
+            <TokenDisplay />
+          </BrowserRouter>
+        </PlayerProvider>
       </ThemeProvider>
     </StyledEngineProvider>
   );

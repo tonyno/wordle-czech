@@ -1,6 +1,7 @@
 // Import the functions you need from the SDKs you need
-import { getAnalytics, logEvent } from "firebase/analytics";
+import { getAnalytics, isSupported, logEvent, Analytics } from "firebase/analytics";
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -21,9 +22,18 @@ const firebaseConfig = {
 
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+export const auth = getAuth(app);
 export const firestore = getFirestore(app);
 
+let analyticsInstance: Analytics | null = null;
+isSupported().then((supported) => {
+  if (supported) {
+    analyticsInstance = getAnalytics(app);
+  }
+});
+
 export const logMyEvent = (event: string, eventParam: string = "") => {
-  logEvent(analytics, event, { param1: eventParam });
+  if (analyticsInstance) {
+    logEvent(analyticsInstance, event, { param1: eventParam });
+  }
 };

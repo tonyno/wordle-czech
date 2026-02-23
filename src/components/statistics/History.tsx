@@ -8,8 +8,9 @@ import {
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { useGetStats } from "../../lib/dataAdapter";
-import { loadGameStateFromLocalStorageNew } from "../../lib/localStorage";
 import { logMyEvent } from "../../lib/settingsFirebase";
+import { usePlayer } from "../../lib/PlayerContext";
+import { useGameHistory } from "../../lib/syncService";
 import MyAlert from "../alerts/MyAlert";
 import MainLoader from "../muiStyled/MainLoader";
 import HistoryCard from "./HistoryCard";
@@ -20,7 +21,9 @@ const PAGE_SIZE = 25;
 
 export default function History() {
   const [numberOfItems, setNumberOfItems] = useState<number>(PAGE_SIZE);
-  const myStatsLocalStorage = loadGameStateFromLocalStorageNew();
+  const { token } = usePlayer();
+  const { history: myStatsLocalStorage, loading: loadingHistory } =
+    useGameHistory(token);
   const [stats, loadingStats, errorStats] = useGetStats();
   const [showUnfinishedGames, setShowUnfinishedGames] = useState(false);
 
@@ -29,19 +32,16 @@ export default function History() {
   ) => {
     setShowUnfinishedGames(event.target.checked);
   };
-  //const [statsDict, setStatsDict] = useState<any>({}); // TODO any
-  //const navigate = useNavigate();
 
   useEffect(() => {
     logMyEvent("history");
-    //rows = getHistoryItems(myStatsLocalStorage, stats);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats]);
 
   const rows = useMemo(
     () => getHistoryItems(myStatsLocalStorage, stats),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [stats]
+    [stats, myStatsLocalStorage]
   );
 
   const onNextPage = () => {
@@ -52,7 +52,7 @@ export default function History() {
     return (showUnfinishedGames && !item.finishedGame) || !showUnfinishedGames;
   };
 
-  if (loadingStats) {
+  if (loadingStats || loadingHistory) {
     return <MainLoader title="Načítám statistiku hráčů...." />;
   }
 

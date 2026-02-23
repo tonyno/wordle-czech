@@ -1,19 +1,12 @@
 import { Box, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
-import { useAuthState } from "react-firebase-hooks/auth";
-import { saveGames } from "../lib/authorization";
+import { usePlayer } from "../lib/PlayerContext";
 import {
-  saveAllResultsToFirebase,
-  saveGameResultFirebase,
-} from "../lib/dataAdapter";
-import {
-  loadGameStateFromLocalStorage,
-  migration1,
-  saveGameStateToLocalStorage,
-  updateFinishedGameStats,
-} from "../lib/localStorage";
+  loadTodaysGame,
+  saveGuess,
+} from "../lib/syncService";
 import { PlayContext } from "../lib/playContext";
-import { auth, logMyEvent } from "../lib/settingsFirebase";
+import { logMyEvent } from "../lib/settingsFirebase";
 import { PlayState, getGameStateFromGuesses } from "../lib/statuses";
 import { isWinningWord, isWordInWordList } from "../lib/words";
 import styles from "./WordlePlay.module.css";
@@ -26,11 +19,17 @@ type Props = {
   playContext: PlayContext;
 };
 
+type GameData = {
+  guesses: string[];
+  isGameWon: boolean;
+  isGameLoose: boolean;
+  startTime?: number;
+  endTime?: number;
+};
+
 const WordlePlay = ({ playContext }: Props) => {
-  const dataFromLocalStorage = loadGameStateFromLocalStorage(playContext);
-  const [guesses, setGuesses] = useState<string[]>(
-    dataFromLocalStorage?.guesses || []
-  );
+  const { token } = usePlayer();
+  const [guesses, setGuesses] = useState<string[]>([]);
   const [currentGuess, setCurrentGuess] = useState("");
   const [gameStatus, setGameStatus] = useState<PlayState>("notStarted");
   const [isWinModalOpen, setIsWinModalOpen] = useState(false);
@@ -38,53 +37,47 @@ const WordlePlay = ({ playContext }: Props) => {
     useState(false);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [gameEndTime, setGameEndTime] = useState<Date | null>(null);
-  const [user] = useAuthState(auth);
-  console.log("USER ", user?.uid, user?.email, user?.photoURL);
+  const [loadedFromServer, setLoadedFromServer] = useState(false);
 
-  try {
-    migration1();
-  } catch (err) {
-    console.error("migration1 error ", err);
-  }
-
-  // Only as part of the start of the app
-  useEffect(() => {
-    logMyEvent("start", navigator.userAgent || navigator.vendor);
-    //console.log("Loaded from localStorage: ", dataFromLocalStorage);
-    //console.log("guesses ", guesses);
-    if (!dataFromLocalStorage) {
-      setGameStartTime(null); // if word changed, then clean the time
-      setGameEndTime(null); // if word changed, then clean the time
+  // Apply loaded game data to state
+  const applyGameData = (data: GameData | null) => {
+    if (!data) {
+      setGameStartTime(null);
+      setGameEndTime(null);
       setCurrentGuess("");
       setGuesses([]);
       setGameStatus("notStarted");
+      return;
+    }
+    setGuesses(data.guesses);
+    setGameStartTime(data.startTime ? new Date(data.startTime) : null);
+    setGameEndTime(data.endTime ? new Date(data.endTime) : null);
+    const status = getGameStateFromGuesses(playContext, data.guesses);
+    if (status === "win") setGameStatus("win");
+    else if (status === "loose") setGameStatus("loose");
+    else if (data.guesses.length > 0) setGameStatus("playing");
+    else setGameStatus("notStarted");
+  };
+
+  useEffect(() => {
+    logMyEvent("start", navigator.userAgent || navigator.vendor);
+
+    if (token) {
+      loadTodaysGame(token, playContext).then((data) => {
+        if (data) {
+          console.log("Loaded game from Firestore for day", playContext.solutionIndex);
+          applyGameData(data);
+          setLoadedFromServer(true);
+        } else {
+          console.log("No game found in Firestore for day", playContext.solutionIndex);
+          applyGameData(null);
+        }
+      });
     } else {
-      const initialStatus = getGameStateFromGuesses(playContext, guesses);
-      setGameStartTime(
-        dataFromLocalStorage?.startTime
-          ? new Date(dataFromLocalStorage?.startTime)
-          : null
-      );
-      setGameEndTime(
-        dataFromLocalStorage?.endTime
-          ? new Date(dataFromLocalStorage?.endTime)
-          : null
-      );
-      //console.log("useEffect() start: ", initialStatus);
-      if (initialStatus === "win" && gameStatus !== "win") {
-        setGameStatus("win");
-      }
-      if (initialStatus === "loose" && gameStatus !== "loose") {
-        setGameStatus("loose");
-      }
+      applyGameData(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playContext]);
-  // TODO https://github.com/facebook/create-react-app/issues/6880#issuecomment-485912528
-
-  // useEffect(() => {
-  //   saveGameStateToLocalStorage(guesses, playContext.solution, isGameWon);
-  // }, [guesses, playContext, isGameWon]);
+  }, [playContext, token]);
 
   useEffect(() => {
     if (gameStatus === "win" || gameStatus === "loose") {
@@ -123,61 +116,42 @@ const WordlePlay = ({ playContext }: Props) => {
       logMyEvent("guess", lastGuess);
 
       if (actualGuessAttempt === 0) {
-        // entering first word, remember the time when started
         setGameStartTime(new Date());
       }
       const newEndTime = new Date();
       setGameEndTime(newEndTime);
-      // setGameDurationMs(
-      //   gameStartTime ? Date.now() - gameStartTime?.getTime() : 0
-      // );
 
-      saveGameStateToLocalStorage(
-        newGuesses,
-        playContext,
-        winningWord,
-        newGameState === "loose",
-        gameStartTime ? gameStartTime.getTime() : undefined,
-        newGameState === "win" || newGameState === "loose"
-          ? newEndTime.getTime()
-          : undefined
-      );
+      const startMs = actualGuessAttempt === 0
+        ? newEndTime.getTime()
+        : gameStartTime
+          ? gameStartTime.getTime()
+          : undefined;
+
+      // Save via syncService (localStorage + Firestore + legacy)
+      if (token) {
+        saveGuess(
+          token,
+          playContext,
+          newGuesses,
+          winningWord,
+          newGameState === "loose",
+          startMs,
+          newGameState === "win" || newGameState === "loose"
+            ? newEndTime.getTime()
+            : undefined
+        );
+      }
+
       setGuesses(newGuesses);
       setCurrentGuess("");
 
       if (newGameState === "win") {
         logMyEvent("win", lastGuess);
-        saveGameResultFirebase(
-          playContext,
-          "TBD",
-          "win",
-          guesses,
-          actualGuessAttempt,
-          gameStartTime && newEndTime
-            ? newEndTime.getTime() - gameStartTime.getTime()
-            : undefined
-        );
-        updateFinishedGameStats(true, actualGuessAttempt);
-        saveAllResultsToFirebase();
-        saveGames(user);
         return setGameStatus("win");
       }
 
       if (newGameState === "loose") {
         logMyEvent("loose", lastGuess);
-        saveGameResultFirebase(
-          playContext,
-          "TBD",
-          "loose",
-          guesses,
-          actualGuessAttempt,
-          gameStartTime && newEndTime
-            ? newEndTime.getTime() - gameStartTime.getTime()
-            : undefined
-        );
-        updateFinishedGameStats(false, actualGuessAttempt);
-        saveAllResultsToFirebase();
-        saveGames(user);
         return setGameStatus("loose");
       }
     }
@@ -212,10 +186,6 @@ const WordlePlay = ({ playContext }: Props) => {
       <Typography sx={{ textAlign: "center", mt: 5 }} variant="body2">
         {" "}
       </Typography>
-      {/* <AdsenseComponent
-        adClient="ca-pub-9858251945255976"
-        adSlot="4677459022"
-      /> */}
       <EndGameModal
         playContext={playContext}
         isOpen={isWinModalOpen}
