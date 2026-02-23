@@ -80,3 +80,9 @@ if __name__ == '__main__':
 # 1.6 mio sessions on unora
 # 9.2 mio celkem
 # 
+
+# 29.4.2024
+# Games: 8143236, win: 7425483, loose: 717753
+# {'LOUKA': 151426, 'KOULE': 112253, 'LÁSKA': 98584, 'PRASE': 31017, 'KOČKA': 7703, 'KOTEL': 5818, 'PRDEL': 3772, 'AUDIO': 2101, 'VÁLKA': 1428, 'HOKEJ': 1352, 'PENIS': 1182, 'VOLBY': 1153,
+#    'DÁREK': 946, 'VOLBA': 556, 'STROM': 544, 'MOUKA': 219, 'KONEC': 204, 'KRYSA': 198, 'POŽÁR': 173, 'ŠKOLA': 156, 'TONDA': 128, 'MĚSTO': 113, 'POKUS': 84, 'TANEC': 74, 'PERLA': 2, 'KNIHA': 2}
+# Total count 53, avg: 243
