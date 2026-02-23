@@ -5,25 +5,24 @@ import {
   CardContent,
   Container,
   Grid,
-  List,
-  ListItem,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
 import * as React from "react";
 import { useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { saveGames, signInWithGoogle } from "../../lib/authorization";
 import {
-  getAllResultsFromFirebase,
   saveAllResultsToFirebase,
   saveSharedResult,
 } from "../../lib/dataAdapter";
 import {
+  SettingsItem,
   getSettings,
   saveSettings,
-  SettingsItem,
 } from "../../lib/localStorage";
-import { logMyEvent } from "../../lib/settingsFirebase";
+import { auth, logMyEvent } from "../../lib/settingsFirebase";
 import { Cell } from "../grid/Cell";
 import PageTitle from "../statistics/PageTitle";
 
@@ -31,20 +30,21 @@ type PropType = {
   onThemeChange: (settings: SettingsItem) => void;
 };
 
-type Report = {
-  previousIdentifierExists: boolean | undefined;
-};
+// type Report = {
+//   previousIdentifierExists: boolean | undefined;
+// };
 
 const Settings = ({ onThemeChange }: PropType) => {
   //const navigate = useNavigate();
   const [data, setData] = useState<SettingsItem>(getSettings());
-  const [mergeIdentifier, setMergeIdentifier] = useState<string>("");
+  //const [mergeIdentifier, setMergeIdentifier] = useState<string>("");
   const [canBeUploadedToServer, setCanBeUploadedToServer] =
     useState<boolean>(true);
-  const [report, setReport] = useState<Report>({
-    previousIdentifierExists: undefined,
-  });
-  //console.log(data);
+  // const [report, setReport] = useState<Report>({
+  //   previousIdentifierExists: undefined,
+  // });
+  const [user] = useAuthState(auth);
+  console.log("USER ", user?.uid);
 
   React.useEffect(() => {
     logMyEvent("settings");
@@ -78,14 +78,14 @@ const Settings = ({ onThemeChange }: PropType) => {
     await saveSharedResult();
   };
 
-  const loadFromOldIdentifier = async () => {
-    const data = await getAllResultsFromFirebase(mergeIdentifier);
-    setReport({ ...report, previousIdentifierExists: data.exists() });
-    if (!data.exists()) {
-      return;
-    }
-    console.log(data);
-  };
+  // const loadFromOldIdentifier = async () => {
+  //   const data = await getAllResultsFromFirebase(mergeIdentifier);
+  //   setReport({ ...report, previousIdentifierExists: data.exists() });
+  //   if (!data.exists()) {
+  //     return;
+  //   }
+  //   console.log(data);
+  // };
 
   return (
     <Container maxWidth="md">
@@ -221,68 +221,22 @@ const Settings = ({ onThemeChange }: PropType) => {
           <CardContent>
             <Grid container spacing={1}>
               <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom component="div">
-                  Sloučit s jiným účtem
-                </Typography>
-                <Typography>
-                  Postup pro sloučení účtů z různých zařízení:
-                </Typography>
-                <List
-                  sx={{
-                    listStyleType: "disc",
-                    pl: 2,
-                    "& .MuiListItem-root": {
-                      display: "list-item",
-                    },
-                  }}
-                >
-                  <ListItem>
-                    <b>Původní zařízení:</b> Otevřte HadejSlova ve svém starém
-                    zařízení, přejděte tam do "Nastavení".
-                  </ListItem>
-                  <ListItem>
-                    <b>Původní zařízení:</b> Nahrajte své výsledky ze starého
-                    zařízení kliknutím na tlačítko "Uložit výsledky do cloudu".
-                  </ListItem>
-                  <ListItem>
-                    <b>Původní zařízení:</b> Ze starého zařízení si zkopírujte
-                    identifikátor vašeho účtu (text ve tvaru:{" "}
-                    <code>3746-db27-384x-448...23</code>)
-                  </ListItem>
-
-                  <ListItem>
-                    <b>Přenos:</b> Přeneste tento kód do nového zařízení - např.
-                    Whatsappem, emailem, SMSkou. Nikomu svůj kód nesdělujte.
-                  </ListItem>
-                  <ListItem>
-                    <b>Nové zařízení:</b> V novém zařízení vložte tento kód do
-                    políčka níže a klikněte na tlačítko "Sloučit účty".
-                  </ListItem>
-                </List>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
-                  id="newAccount"
-                  label="Identifikátor vašeho předchozího účtu"
-                  value={mergeIdentifier}
-                  onChange={(event) => setMergeIdentifier(event.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  variant="contained"
-                  disabled={!(mergeIdentifier && mergeIdentifier.length === 36)}
-                  onClick={loadFromOldIdentifier}
-                >
-                  Načíst
-                </Button>
-              </Grid>
-              <Grid item xs={12}>
                 <Typography sx={{ color: "red" }}>
                   Zatim nefunkcni, makam na tom.
                 </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Button variant="contained" onClick={signInWithGoogle}>
+                  Login přes Google
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => saveGames(user)}
+                  disabled={!user}
+                  sx={{ ml: 1 }}
+                >
+                  Ulozit data na server
+                </Button>
               </Grid>
             </Grid>
           </CardContent>

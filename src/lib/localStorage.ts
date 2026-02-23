@@ -316,4 +316,6 @@ export const addFollower = (userId: string) => {
 export type AllResults = {
   history: GameStateHistory;
   settings: SettingsItem;
+  stats: Stats;
+  size: number;
 };

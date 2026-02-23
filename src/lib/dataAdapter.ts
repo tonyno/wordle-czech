@@ -4,6 +4,7 @@ import { isProduction } from "./environments";
 import {
   AllResults,
   GameStateHistory,
+  getFinishedGameStatsFromLocalStorage,
   getSettings,
   getUserId,
   loadGameStateFromLocalStorageNew,
@@ -91,10 +92,12 @@ export type GameStats = {
 
 export const useGetStats = (): any => {
   // TODO any -> GameStats
-  const statsRef = doc(firestore, "gameStats", "wordle");
-  return useDocumentDataOnce(statsRef, {
-    idField: "id",
-  });
+  const statsRef1 = doc(firestore, "gameStats", "wordle");
+  const statsRef2 = doc(firestore, "gameStats", "wordle2");
+  const [data1, loading1, error1] = useDocumentDataOnce(statsRef1, { idField: "id" });
+  const [data2, loading2, error2] = useDocumentDataOnce(statsRef2, { idField: "id" });
+  const merged = data1 || data2 ? { ...data1, ...data2 } : undefined;
+  return [merged, loading1 || loading2, error1 || error2];
 };
 
 export const useGetStatsDocument = (documentId: string): any => {
@@ -163,9 +166,10 @@ export const saveSharedResult = async () => {
   await setDoc(docRef, data);
 };
 
-export const saveAllResultsToFirebase = async () => {
+const prepaveForSaving = () => {
   const settings = getSettings();
   const history = loadGameStateFromLocalStorageNew();
+  const stats = getFinishedGameStatsFromLocalStorage();
   if (!settings.userId || !history) {
     console.error("Missing userId or history data");
     return;
@@ -173,15 +177,39 @@ export const saveAllResultsToFirebase = async () => {
   const data: AllResults = {
     history,
     settings,
+    stats,
+    size:
+      JSON.stringify(history).length +
+      JSON.stringify(stats).length +
+      JSON.stringify(settings).length,
   };
+  console.log("Size of data: ", data.size);
   if (!data?.settings?.nickname) {
     data.settings.nickname = "";
   }
-  const docRef = doc(firestore, "allResults", settings.userId);
-  await setDoc(docRef, data);
+  return data;
+};
+
+export const saveAllResultsToFirebase = async () => {
+  const settings = getSettings();
+  const data = prepaveForSaving();
+  if (data && settings.userId) {
+    const docRef = doc(firestore, "allResults", settings.userId);
+    await setDoc(docRef, data);
+  }
 };
 
 export const getAllResultsFromFirebase = async (userId: string) => {
   const docRef = doc(firestore, "allResults", userId);
   return await getDoc(docRef);
+};
+
+// Login feature
+
+export const saveGamesForLoggedUser = async (loggedUserID: string) => {
+  const data = prepaveForSaving();
+  if (data && loggedUserID) {
+    const docRef = doc(firestore, "savedGames", loggedUserID);
+    await setDoc(docRef, data);
+  }
 };

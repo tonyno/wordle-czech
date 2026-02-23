@@ -21,7 +21,11 @@
         ]
       }
     ],
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
       {
         "source": "**",
@@ -38,5 +42,9 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "firestore": {
+    "rules": "storage.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

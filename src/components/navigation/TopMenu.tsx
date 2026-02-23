@@ -1,5 +1,5 @@
 import MenuIcon from "@mui/icons-material/Menu";
-import { Divider, useTheme } from "@mui/material";
+import { Avatar, Divider, useTheme } from "@mui/material";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -8,8 +8,11 @@ import MenuItem from "@mui/material/MenuItem";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { useNavigate } from "react-router-dom";
+import { signOutUser } from "../../lib/authorization";
 import { ApplicationContext } from "../../lib/playContext";
+import { auth } from "../../lib/settingsFirebase";
 import CountDownTimer from "../counter/CountDownTimer";
 import { AboutModal } from "../modals/AboutModal";
 import { InfoModal } from "../modals/InfoModal";
@@ -26,6 +29,7 @@ const TopMenu = ({ appContext, differentTopMessage }: Props) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [user] = useAuthState(auth);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -77,16 +81,24 @@ const TopMenu = ({ appContext, differentTopMessage }: Props) => {
               >
                 <EqualizerIcon />
               </IconButton> */}
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-              >
-                <MenuIcon />
-              </IconButton>
+              {user && user?.photoURL ? (
+                <Avatar
+                  src={user?.photoURL}
+                  onClick={handleMenu}
+                  sx={{ cursor: "pointer" }}
+                />
+              ) : (
+                <IconButton
+                  size="large"
+                  aria-label="account of current user"
+                  aria-controls="menu-appbar"
+                  aria-haspopup="true"
+                  onClick={handleMenu}
+                  color="inherit"
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
               <Menu
                 id="menu-appbar"
                 anchorEl={anchorEl}
@@ -151,6 +163,16 @@ const TopMenu = ({ appContext, differentTopMessage }: Props) => {
                 >
                   O aplikaci..
                 </MenuItem>
+                {user && (
+                  <MenuItem
+                    onClick={() => {
+                      signOutUser();
+                      handleClose();
+                    }}
+                  >
+                    Odhlásit
+                  </MenuItem>
+                )}
               </Menu>
             </div>
           </Toolbar>

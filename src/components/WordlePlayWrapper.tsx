@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useGetWordOfDay } from "../lib/dataAdapter";
 import { ApplicationContext } from "../lib/playContext";
 import { getDateFromSolutionIndex, getWordIndex } from "../lib/words";
+import WordlePlay from "./WordlePlay";
 import MyAlert from "./alerts/MyAlert";
 import MainLoader from "./muiStyled/MainLoader";
-import WordlePlay from "./WordlePlay";
 
 type Props = {
   appContext: ApplicationContext;
@@ -44,7 +44,9 @@ const WordlePlayContext = ({ appContext, setNewMessage }: Props) => {
       {loading ? (
         <MainLoader title="Načítám další slovo..." />
       ) : (
-        <WordlePlay playContext={playContext} />
+        <>
+          <WordlePlay playContext={playContext} />
+        </>
       )}
 
       {currentWordError && (

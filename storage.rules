@@ -44,6 +44,10 @@ service cloud.firestore {
       allow get, create, update: if true;
     }  
 
+    match /savedGames/{document=**} {
+      allow get, create, update: if true;
+    }  
+
   }
 }
 

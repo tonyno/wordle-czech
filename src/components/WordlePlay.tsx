@@ -1,5 +1,7 @@
 import { Box, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { saveGames } from "../lib/authorization";
 import {
   saveAllResultsToFirebase,
   saveGameResultFirebase,
@@ -11,7 +13,7 @@ import {
   updateFinishedGameStats,
 } from "../lib/localStorage";
 import { PlayContext } from "../lib/playContext";
-import { logMyEvent } from "../lib/settingsFirebase";
+import { auth, logMyEvent } from "../lib/settingsFirebase";
 import { PlayState, getGameStateFromGuesses } from "../lib/statuses";
 import { isWinningWord, isWordInWordList } from "../lib/words";
 import styles from "./WordlePlay.module.css";
@@ -36,6 +38,8 @@ const WordlePlay = ({ playContext }: Props) => {
     useState(false);
   const [gameStartTime, setGameStartTime] = useState<Date | null>(null);
   const [gameEndTime, setGameEndTime] = useState<Date | null>(null);
+  const [user] = useAuthState(auth);
+  console.log("USER ", user?.uid, user?.email, user?.photoURL);
 
   try {
     migration1();
@@ -155,6 +159,7 @@ const WordlePlay = ({ playContext }: Props) => {
         );
         updateFinishedGameStats(true, actualGuessAttempt);
         saveAllResultsToFirebase();
+        saveGames(user);
         return setGameStatus("win");
       }
 
@@ -172,6 +177,7 @@ const WordlePlay = ({ playContext }: Props) => {
         );
         updateFinishedGameStats(false, actualGuessAttempt);
         saveAllResultsToFirebase();
+        saveGames(user);
         return setGameStatus("loose");
       }
     }
