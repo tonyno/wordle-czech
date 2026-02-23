@@ -163,7 +163,8 @@ const statisticsForDay = async (solutionIndex: number) => {
   };
 
   functions.logger.info("Going to save to the database");
-  const entry = db.collection("gameStats").doc("wordle");
+  const docName = solutionIndex >= 1500 ? "wordle2" : "wordle";
+  const entry = db.collection("gameStats").doc(docName);
   const currentData = entry ? (await entry.get()).data() || {} : {};
   functions.logger.info("Get completed");
   currentData[day] = statsResult;

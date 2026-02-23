@@ -92,10 +92,12 @@ export type GameStats = {
 
 export const useGetStats = (): any => {
   // TODO any -> GameStats
-  const statsRef = doc(firestore, "gameStats", "wordle");
-  return useDocumentDataOnce(statsRef, {
-    idField: "id",
-  });
+  const statsRef1 = doc(firestore, "gameStats", "wordle");
+  const statsRef2 = doc(firestore, "gameStats", "wordle2");
+  const [data1, loading1, error1] = useDocumentDataOnce(statsRef1, { idField: "id" });
+  const [data2, loading2, error2] = useDocumentDataOnce(statsRef2, { idField: "id" });
+  const merged = data1 || data2 ? { ...data1, ...data2 } : undefined;
+  return [merged, loading1 || loading2, error1 || error2];
 };
 
 export const useGetStatsDocument = (documentId: string): any => {
