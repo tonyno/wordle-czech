@@ -86,3 +86,9 @@ if __name__ == '__main__':
 # {'LOUKA': 151426, 'KOULE': 112253, 'LÁSKA': 98584, 'PRASE': 31017, 'KOČKA': 7703, 'KOTEL': 5818, 'PRDEL': 3772, 'AUDIO': 2101, 'VÁLKA': 1428, 'HOKEJ': 1352, 'PENIS': 1182, 'VOLBY': 1153,
 #    'DÁREK': 946, 'VOLBA': 556, 'STROM': 544, 'MOUKA': 219, 'KONEC': 204, 'KRYSA': 198, 'POŽÁR': 173, 'ŠKOLA': 156, 'TONDA': 128, 'MĚSTO': 113, 'POKUS': 84, 'TANEC': 74, 'PERLA': 2, 'KNIHA': 2}
 # Total count 53, avg: 243
+
+
+# 23.2.2025 - word number 1500
+# Games: 9461141, win: 8627534, loose: 833607
+# {'LOUKA': 178142, 'KOULE': 130601, 'LÁSKA': 117370, 'PRASE': 31017, 'KOČKA': 7703, 'KOTEL': 5881, 'AUDIO': 5061, 'PRDEL': 3772, 'HOKEJ': 1646, 'VÁLKA': 1428, 'VOLBY': 1344, 'PENIS': 1182, 'DÁREK': 1157, 'VOLBA': 556, 'STROM': 544, 'MOUKA': 294, 'KONEC': 204, 'KRYSA': 198, 'POŽÁR': 173, 'ŠKOLA': 156, 'TONDA': 128, 'MĚSTO': 113, 'POKUS': 84, 'TANEC': 74, 'PERLA': 2, 'KNIHA': 2}
+# Total count 52, avg: 252
