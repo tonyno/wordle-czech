@@ -1,4 +1,5 @@
 import Chart from "react-apexcharts";
+import { baseChartOptions } from "./chartConfig";
 
 export type ChartOthersProps = {
   guessesDistribution?: number[];
@@ -11,17 +12,8 @@ const ChartBarOthers = ({
   myScore,
   mode,
 }: ChartOthersProps) => {
-  //  const theme = useTheme();
-  let colors = [
-    // theme.wordle.cell.present.bgcolor,
-    "#c0cccf",
-    "#c0cccf",
-    "#c0cccf",
-    "#c0cccf",
-    "#c0cccf",
-    "#c0cccf",
-    "#d47070",
-  ];
+  const base = baseChartOptions();
+
   const annotations = myScore
     ? {
         points: [
@@ -45,7 +37,6 @@ const ChartBarOthers = ({
     ? guessesDistribution.reduce((sum, value) => sum + value, 0)
     : 0;
 
-  // https://apexcharts.com/docs/options/annotations/
   const graphData = {
     series: [
       {
@@ -54,14 +45,14 @@ const ChartBarOthers = ({
       },
     ],
     options: {
+      ...base,
       annotations: annotations,
-      colors: colors,
       plotOptions: {
         bar: {
+          ...base.plotOptions.bar,
           borderRadius: 0,
-          distributed: true,
           dataLabels: {
-            position: "top", // top, center, bottom
+            position: "top",
           },
         },
       },
@@ -76,10 +67,8 @@ const ChartBarOthers = ({
           colors: ["#304758"],
         },
       },
-
       xaxis: {
         categories: ["1", "2", "3", "4", "5", "6", "N"],
-
         axisBorder: {
           show: true,
         },
@@ -105,9 +94,6 @@ const ChartBarOthers = ({
           text: "Počet her",
         },
       },
-      legend: {
-        show: false,
-      },
       chart: {
         toolbar: {
           show: false,
@@ -127,7 +113,3 @@ const ChartBarOthers = ({
 };
 
 export default ChartBarOthers;
-
-// 514.32 kB (+126.34 kB)  build\static\js\main.4daab5e1.js
-// 1.73 kB                 build\static\js\27.5dbfd2fb.chunk.js
-// 794 B                   build\static\css\main.51cc142e.css

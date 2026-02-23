@@ -29,6 +29,7 @@
     "buildwithstats": "set \"GENERATE_SOURCEMAP=false\" && react-scripts build --stats",
     "buildwithsourcemap": "react-scripts build --stats",
     "test": "react-scripts test",
+    "test:ci": "react-scripts test --watchAll=false --forceExit",
     "analyze": "webpack-bundle-analyzer build/bundle-stats.json",
     "eject": "react-scripts eject"
   },

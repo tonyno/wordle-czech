@@ -10,6 +10,10 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { firestore } from "./settingsFirebase";
+import {
+  GAME_TYPE_WORDLE5,
+  computeGuessDistribution,
+} from "./statsCalculation";
 
 export type GameType = "wordle5";
 
@@ -194,7 +198,6 @@ export const mergeTokens = async (
   let merged = 0;
   let conflicts = 0;
   const batch = writeBatch(firestore);
-  const batchSize = 0;
 
   for (const sourceDoc of sourceSnap.docs) {
     const sourceGame = sourceDoc.data() as GameDoc;
@@ -236,31 +239,29 @@ export const mergeTokens = async (
   }
 
   // Merge stats
-  const sourceStats = await getPlayerStats(sourceToken, "wordle5");
-  const targetStats = await getPlayerStats(targetToken, "wordle5");
+  const sourceStats = await getPlayerStats(sourceToken, GAME_TYPE_WORDLE5);
+  const targetStats = await getPlayerStats(targetToken, GAME_TYPE_WORDLE5);
   if (sourceStats && !targetStats) {
-    await updatePlayerStats(targetToken, "wordle5", sourceStats);
+    await updatePlayerStats(targetToken, GAME_TYPE_WORDLE5, sourceStats);
   } else if (sourceStats && targetStats) {
     // Recalculate stats from merged games
     const allGames = await getDocs(
       collection(firestore, "players", targetToken, "games")
     );
-    const dist = [0, 0, 0, 0, 0, 0, 0];
-    let gamesPlayed = 0;
+    const finishedGames: { isGameWon: boolean; numberOfGuesses: number }[] = [];
     allGames.forEach((d) => {
       const g = d.data() as GameDoc;
-      if (g.gameType === "wordle5") {
-        gamesPlayed++;
-        if (g.isGameWon) {
-          dist[g.guesses.length - 1] += 1;
-        } else if (g.isGameLoose) {
-          dist[6] += 1;
-        }
+      if (g.gameType === GAME_TYPE_WORDLE5 && (g.isGameWon || g.isGameLoose)) {
+        finishedGames.push({
+          isGameWon: g.isGameWon,
+          numberOfGuesses: g.guesses.length - 1,
+        });
       }
     });
-    await updatePlayerStats(targetToken, "wordle5", {
+    const dist = computeGuessDistribution(finishedGames);
+    await updatePlayerStats(targetToken, GAME_TYPE_WORDLE5, {
       guessesDistribution: dist,
-      gamesPlayed,
+      gamesPlayed: finishedGames.length,
       lastUpdated: Timestamp.now(),
     });
   }

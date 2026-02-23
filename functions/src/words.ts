@@ -1,5 +1,8 @@
+// Epoch for word index calculation.
+// Must match src/constants/otherConstants.ts startDate.
+// UTC noon ensures the day boundary at 18:00 CET / 19:00 CEST
+// without needing DST detection.
 export const startDate = new Date(Date.UTC(2022, 0, 14, 12, 0));
-// we are running the job at 18:00, but there is issue with DST. So easiest way is to pretend the word is changing at 12:00, so every 18:00 or 19:00 the word will be chosen.
 //export const startDate = new Date(2022, 0, 14, 0, 35);
 export const msInDay = 86400000;
 

@@ -16,7 +16,8 @@ Czech Wordle clone — a word guessing game with Czech words. React SPA with Fir
 # Root (React app)
 npm start          # Dev server
 npm run build      # Production build
-npm test           # Jest + React Testing Library
+npm test           # Jest + React Testing Library (watch mode)
+npm run test:ci    # Jest single run (CI, no watch, --forceExit)
 
 # Firebase Functions (cd functions/)
 npm run build      # Compile TypeScript
@@ -32,6 +33,17 @@ npm run serve      # Build + emulator
 - `src/constants/` — Constants and word lists
 - `functions/src/` — Firebase Cloud Functions (TypeScript)
 - `data_prepare/`, `data_calculate/` — Offline data/stats scripts
+
+## Tests
+
+Unit tests live next to the modules they test (`*.test.ts`):
+
+- `src/lib/statsCalculation.test.ts` — stats distribution logic, `buildGameId`, date/time alignment
+- `src/lib/statuses.test.ts` — guess evaluation (`getGuessStatuses`), keyboard statuses, game state detection
+- `src/lib/localStorage.test.ts` — localStorage save/load round-trips, stats accumulation, history fallback, `getMyHistoricalResultToGraphs`
+- `src/lib/words.test.ts` — word validation, `getWordIndex`, URL parameter parsing
+- `src/lib/playerService.test.ts` — token generation (format, uniqueness), `gameId` formatting
+- `src/constants/otherConstants.test.ts` — epoch alignment, CET/CEST boundary consistency
 
 ## Key Conventions
 

@@ -16,7 +16,6 @@ import {
 import { firestore } from "./settingsFirebase";
 import {
   GameStateHistory,
-  GameStateItem,
   getFinishedGameStatsFromLocalStorage,
   getSettings,
   loadGameStateFromLocalStorageNew,
@@ -29,9 +28,14 @@ import {
   saveGameResultFirebase,
 } from "./dataAdapter";
 import { PlayState } from "./statuses";
-import { isProduction } from "./environments";
 import { auth } from "./settingsFirebase";
 import { getPlayerByGoogleUid, linkGoogleUid } from "./playerService";
+import {
+  GAME_TYPE_WORDLE5,
+  LEGACY_WRITES_ENABLED,
+  incrementGuessDistribution,
+  EMPTY_DISTRIBUTION,
+} from "./statsCalculation";
 
 const TOKEN_KEY = "playerToken";
 const MIGRATION_KEY = "tokenMigrationStatus";
@@ -145,7 +149,7 @@ const migrateLocalStorageToFirestore = async (
   if (!history) return;
 
   const entries = Object.entries(history);
-  const gameType: GameType = "wordle5";
+  const gameType: GameType = GAME_TYPE_WORDLE5;
 
   // Write games in chunks of 500 (Firestore batch limit)
   for (let i = 0; i < entries.length; i++) {
@@ -204,7 +208,7 @@ export const loadTodaysGame = async (
   endTime?: number;
 } | null> => {
   try {
-    const game = await getGame(token, "wordle5", playContext.solutionIndex);
+    const game = await getGame(token, GAME_TYPE_WORDLE5, playContext.solutionIndex);
     if (game) {
       return {
         guesses: game.guesses,
@@ -220,6 +224,77 @@ export const loadTodaysGame = async (
   return null;
 };
 
+const saveGameToFirestore = async (
+  token: string,
+  gameDoc: GameDoc
+): Promise<void> => {
+  await saveGame(
+    token,
+    GAME_TYPE_WORDLE5,
+    gameDoc.solutionIndex,
+    gameDoc
+  );
+};
+
+const saveLegacyCollections = (
+  playContext: PlayContext,
+  guesses: string[],
+  isGameWon: boolean,
+  numberOfGuesses: number,
+  duration?: number
+): void => {
+  if (!LEGACY_WRITES_ENABLED) return;
+
+  const result: PlayState = isGameWon ? "win" : "loose";
+
+  // Legacy: gameResult collection (read by `statistics` cloud function)
+  saveGameResultFirebase(
+    playContext,
+    "TBD",
+    result,
+    guesses,
+    numberOfGuesses,
+    duration
+  );
+
+  // Legacy: allResults collection (backward compat)
+  saveAllResultsToFirebase();
+};
+
+const updateAllStats = async (
+  token: string,
+  isGameWon: boolean,
+  numberOfGuesses: number
+): Promise<void> => {
+  // Update localStorage stats
+  updateFinishedGameStats(isGameWon, numberOfGuesses);
+
+  // Update Firestore player stats
+  const existing = await getPlayerStats(token, GAME_TYPE_WORDLE5);
+  const dist = existing
+    ? incrementGuessDistribution(
+        existing.guessesDistribution,
+        isGameWon,
+        numberOfGuesses
+      )
+    : incrementGuessDistribution(
+        [...EMPTY_DISTRIBUTION],
+        isGameWon,
+        numberOfGuesses
+      );
+  const gamesPlayed = (existing?.gamesPlayed || 0) + 1;
+  await updatePlayerStats(token, GAME_TYPE_WORDLE5, {
+    guessesDistribution: dist,
+    gamesPlayed,
+    lastUpdated: Timestamp.now(),
+  });
+};
+
+export type SaveGuessResult = {
+  success: boolean;
+  errors: string[];
+};
+
 export const saveGuess = async (
   token: string,
   playContext: PlayContext,
@@ -228,7 +303,9 @@ export const saveGuess = async (
   isGameLoose: boolean,
   startTime?: number,
   endTime?: number
-): Promise<void> => {
+): Promise<SaveGuessResult> => {
+  const errors: string[] = [];
+
   // 1. Save to localStorage (cache)
   saveGameStateToLocalStorage(
     guesses,
@@ -241,7 +318,7 @@ export const saveGuess = async (
 
   // 2. Save to Firestore (new player model)
   const gameDoc: GameDoc = {
-    gameType: "wordle5",
+    gameType: GAME_TYPE_WORDLE5,
     solutionIndex: playContext.solutionIndex,
     guesses,
     isGameWon,
@@ -252,52 +329,35 @@ export const saveGuess = async (
   };
 
   try {
-    await saveGame(token, "wordle5", playContext.solutionIndex, gameDoc);
+    await saveGameToFirestore(token, gameDoc);
   } catch (err) {
     console.error("Error saving game to Firestore:", err);
+    errors.push("Firestore game save failed");
   }
 
   // 3. On game end, do legacy writes + stats update
   if (isGameWon || isGameLoose) {
-    const result: PlayState = isGameWon ? "win" : "loose";
     const numberOfGuesses = guesses.length - 1;
     const duration =
       startTime && endTime ? endTime - startTime : undefined;
 
-    // Legacy: gameResult collection
-    saveGameResultFirebase(
+    saveLegacyCollections(
       playContext,
-      "TBD",
-      result,
       guesses,
+      isGameWon,
       numberOfGuesses,
       duration
     );
 
-    // Legacy: allResults collection
-    saveAllResultsToFirebase();
-
-    // Update localStorage stats
-    updateFinishedGameStats(isGameWon, numberOfGuesses);
-
-    // Update Firestore player stats
     try {
-      const existing = await getPlayerStats(token, "wordle5");
-      const dist = existing
-        ? [...existing.guessesDistribution]
-        : [0, 0, 0, 0, 0, 0, 0];
-      const index = isGameWon ? numberOfGuesses : 6;
-      dist[index] += 1;
-      const gamesPlayed = (existing?.gamesPlayed || 0) + 1;
-      await updatePlayerStats(token, "wordle5", {
-        guessesDistribution: dist,
-        gamesPlayed,
-        lastUpdated: Timestamp.now(),
-      });
+      await updateAllStats(token, isGameWon, numberOfGuesses);
     } catch (err) {
       console.error("Error updating player stats:", err);
+      errors.push("Stats update failed");
     }
   }
+
+  return { success: errors.length === 0, errors };
 };
 
 export const enterExternalToken = async (
@@ -320,7 +380,7 @@ export const enterExternalToken = async (
     if (!player) {
       return { success: false, totalGames: 0, merged: 0, conflicts: 0, error: "Kód nebyl nalezen." };
     }
-    const stats = await getPlayerStats(enteredToken, "wordle5");
+    const stats = await getPlayerStats(enteredToken, GAME_TYPE_WORDLE5);
     if (stats) {
       totalGames = stats.gamesPlayed;
     }
@@ -424,7 +484,7 @@ export const usePersonalStats = (
       return;
     }
     let cancelled = false;
-    getPlayerStats(token, "wordle5")
+    getPlayerStats(token, GAME_TYPE_WORDLE5)
       .then((data) => {
         if (!cancelled && data) {
           setStats({
