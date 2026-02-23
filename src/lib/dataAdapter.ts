@@ -1,4 +1,5 @@
-import { addDoc, collection, doc, getDoc, setDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocFromServer, setDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import { useDocumentDataOnce } from "react-firebase-hooks/firestore";
 import { isProduction } from "./environments";
 import {
@@ -112,11 +113,27 @@ export const useGetStatsDocument = (documentId: string): any => {
 
 export const useGetWordOfDay = (date: Date): any => {
   const dateStr = dateToStr(date);
-  //console.log("Getting data from FireStore for date: ", dateStr);
-  const wordRef = doc(firestore, "word", dateStr);
-  let [data, loading, error] = useDocumentDataOnce(wordRef, {
-    idField: "id",
-  });
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDocFromServer(doc(firestore, "word", dateStr))
+      .then((snap) => {
+        if (!cancelled && snap.exists()) {
+          setData({ ...snap.data(), id: snap.id });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [dateStr]);
+
   let context: PlayContext;
   if (!error && !loading && data) {
     context = {

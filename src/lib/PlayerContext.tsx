@@ -18,8 +18,10 @@ export const usePlayer = () => useContext(PlayerContext);
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [token, setTokenState] = useState<string | null>(getToken());
-  const [loading, setLoading] = useState(true);
+  const localToken = getToken();
+  const [token, setTokenState] = useState<string | null>(localToken);
+  // If we already have a local token, no need to block rendering
+  const [loading, setLoading] = useState(!localToken);
 
   useEffect(() => {
     initializePlayer()
@@ -28,7 +30,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
       })
       .catch((err) => {
         console.error("Error initializing player:", err);
-        // If we have a local token, use it anyway
         const local = getToken();
         if (local) setTokenState(local);
       })

@@ -5,6 +5,7 @@ import {
   loadTodaysGame,
   saveGuess,
 } from "../lib/syncService";
+import { loadGameStateFromLocalStorage } from "../lib/localStorage";
 import { PlayContext } from "../lib/playContext";
 import { logMyEvent } from "../lib/settingsFirebase";
 import { PlayState, getGameStateFromGuesses } from "../lib/statuses";
@@ -62,18 +63,29 @@ const WordlePlay = ({ playContext }: Props) => {
   useEffect(() => {
     logMyEvent("start", navigator.userAgent || navigator.vendor);
 
+    // Load from localStorage instantly for fast render
+    const localData = loadGameStateFromLocalStorage(playContext);
+    if (localData) {
+      applyGameData({
+        guesses: localData.guesses,
+        isGameWon: localData.guesses.length > 0 && getGameStateFromGuesses(playContext, localData.guesses) === "win",
+        isGameLoose: localData.guesses.length > 0 && getGameStateFromGuesses(playContext, localData.guesses) === "loose",
+        startTime: localData.startTime,
+        endTime: localData.endTime,
+      });
+    }
+
+    // Then load from Firestore in the background (may have newer data from another device)
     if (token) {
       loadTodaysGame(token, playContext).then((data) => {
         if (data) {
-          console.log("Loaded game from Firestore for day", playContext.solutionIndex);
           applyGameData(data);
           setLoadedFromServer(true);
-        } else {
-          console.log("No game found in Firestore for day", playContext.solutionIndex);
+        } else if (!localData) {
           applyGameData(null);
         }
       });
-    } else {
+    } else if (!localData) {
       applyGameData(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
