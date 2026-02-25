@@ -99,6 +99,7 @@ export const getPlayerByGoogleUid = async (
     where("googleUid", "==", uid)
   );
   const snap = await getDocs(q);
+  console.log("SNAP: ", snap);
   if (snap.empty) return null;
   const docSnap = snap.docs[0];
   return { token: docSnap.id, player: docSnap.data() as PlayerDoc };

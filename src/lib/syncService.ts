@@ -29,6 +29,7 @@ import {
 } from "./dataAdapter";
 import { PlayState } from "./statuses";
 import { auth } from "./settingsFirebase";
+import { onAuthStateChanged } from "firebase/auth";
 import { getPlayerByGoogleUid, linkGoogleUid } from "./playerService";
 import {
   GAME_TYPE_WORDLE5,
@@ -56,7 +57,17 @@ const setMigrationStatus = (status: string): void => {
   localStorage.setItem(MIGRATION_KEY, status);
 };
 
+/** Wait for Firebase Auth to resolve the persisted session (resolves once). */
+const waitForAuthReady = (): Promise<void> =>
+  new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      unsubscribe();
+      resolve();
+    });
+  });
+
 export const initializePlayer = async (): Promise<string> => {
+  await waitForAuthReady();
   const googleUser = auth.currentUser;
   const googleUid = googleUser?.uid || null;
 
