@@ -19,7 +19,7 @@ import PersonalStats from "./components/statistics/PersonalStats";
 import TokenDisplay from "./components/TokenDisplay";
 import Welcome from "./components/Welcome";
 import WordlePlayWrapper from "./components/WordlePlayWrapper";
-import { firstTimeVisit, getSettings, SettingsItem } from "./lib/localStorage";
+import { firstTimeVisit, getSettings, saveInitialPageConfirmed, SettingsItem } from "./lib/localStorage";
 import { PlayerProvider } from "./lib/PlayerContext";
 import { ApplicationContext } from "./lib/playContext";
 import { getWordIndex } from "./lib/words";
@@ -72,7 +72,7 @@ function App() {
                 path="/"
                 element={
                   firstTime ? (
-                    <Welcome startGame={() => setFirstTime(false)} />
+                    <Welcome startGame={() => { saveInitialPageConfirmed(); setFirstTime(false); }} />
                   ) : (
                     <WordlePlayWrapper
                       appContext={appContext}

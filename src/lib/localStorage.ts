@@ -6,6 +6,7 @@ const gameStateKeyNew = "actualGameState";
 const gameStatisticsKey = "stats";
 const settingsKey = "settings";
 const followingKey = "following";
+const initialPageConfirmedKey = "initialPageConfirmed";
 
 export type StoredGameState = {
   guesses: string[];
@@ -108,7 +109,12 @@ export const loadGameStateFromLocalStorageNew = ():
 
 export const firstTimeVisit = (): boolean => {
   const state = localStorage.getItem(gameStateKeyNew);
-  return !Boolean(state);
+  const confirmed = localStorage.getItem(initialPageConfirmedKey);
+  return !Boolean(state) && !Boolean(confirmed);
+};
+
+export const saveInitialPageConfirmed = () => {
+  localStorage.setItem(initialPageConfirmedKey, "1");
 };
 
 export const saveGameStateToLocalStorage = (

@@ -7,6 +7,7 @@ import {
   loadGameStateFromLocalStorageNew,
   getMyHistoricalResultToGraphs,
   firstTimeVisit,
+  saveInitialPageConfirmed,
   GameStateItem,
 } from "./localStorage";
 import { PlayContext } from "./playContext";
@@ -106,6 +107,16 @@ describe("firstTimeVisit", () => {
 
   it("returns false after saving a game", () => {
     saveGameStateToLocalStorage(["X"], makeCtx("ROBOT", 1), false, false);
+    expect(firstTimeVisit()).toBe(false);
+  });
+
+  it("returns false after saveInitialPageConfirmed", () => {
+    saveInitialPageConfirmed();
+    expect(firstTimeVisit()).toBe(false);
+  });
+
+  it("returns false when initialPageConfirmed is set even without game state", () => {
+    localStorage.setItem("initialPageConfirmed", "1");
     expect(firstTimeVisit()).toBe(false);
   });
 });
