@@ -276,50 +276,7 @@ const Settings = ({ onThemeChange }: PropType) => {
           </CardContent>
         </Card>
 
-        <Card sx={{ maxWidth: "md", mt: "1rem" }}>
-          <CardContent>
-            <Grid container spacing={1}>
-              <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom component="div">
-                  Ukládání výsledků do cloudu
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  required
-                  fullWidth
-                  id="nickname"
-                  label="Přezdívka"
-                  value={data.nickname}
-                  onChange={(event) => changeNickname(event.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  variant="contained"
-                  disabled={!canBeUploadedToServer}
-                  onClick={() => shareGameResultsToServer()}
-                >
-                  Uložit výsledky do cloudu
-                </Button>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body2">
-                  Váš soukromý identifikátor (starý systém):
-                </Typography>
-                <code>{data.userId}</code>{" "}
-                <Button
-                  size="small"
-                  onClick={() => {
-                    if (data.userId) navigator.clipboard.writeText(data.userId);
-                  }}
-                >
-                  (kopírovat do schránky)
-                </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+       
       </Box>
 
       <EnterTokenModal

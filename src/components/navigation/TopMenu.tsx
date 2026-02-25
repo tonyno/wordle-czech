@@ -84,6 +84,7 @@ const TopMenu = ({ appContext, differentTopMessage }: Props) => {
               {user && user?.photoURL ? (
                 <Avatar
                   src={user?.photoURL}
+                  imgProps={{ referrerPolicy: "no-referrer" }}
                   onClick={handleMenu}
                   sx={{ cursor: "pointer" }}
                 />
