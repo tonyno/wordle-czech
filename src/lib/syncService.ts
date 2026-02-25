@@ -426,8 +426,7 @@ export const loadAllGamesFromFirestore = async (
 };
 
 /**
- * Hook that returns game history: tries localStorage first,
- * falls back to Firestore for cross-device access.
+ * Hook that returns game history from database
  */
 export const useGameHistory = (
   token: string | null

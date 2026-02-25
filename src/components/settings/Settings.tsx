@@ -7,7 +7,6 @@ import {
   Grid,
   IconButton,
   Switch,
-  TextField,
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -16,10 +15,7 @@ import * as React from "react";
 import { useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { signInWithGoogle, signOutUser } from "../../lib/authorization";
-import {
-  saveAllResultsToFirebase,
-  saveSharedResult,
-} from "../../lib/dataAdapter";
+
 import {
   SettingsItem,
   getSettings,
@@ -38,8 +34,7 @@ type PropType = {
 
 const Settings = ({ onThemeChange }: PropType) => {
   const [data, setData] = useState<SettingsItem>(getSettings());
-  const [canBeUploadedToServer, setCanBeUploadedToServer] =
-    useState<boolean>(true);
+
   const [user] = useAuthState(auth);
   const { token, refreshToken } = usePlayer();
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
@@ -68,15 +63,9 @@ const Settings = ({ onThemeChange }: PropType) => {
     save({ ...data, bigFont: !data.bigFont });
   };
 
-  const changeNickname = (s: string) => {
-    save({ ...data, nickname: s });
-  };
 
-  const shareGameResultsToServer = async () => {
-    setCanBeUploadedToServer(false);
-    saveAllResultsToFirebase();
-    await saveSharedResult();
-  };
+
+
 
   const handleGoogleLogin = async () => {
     setGoogleAuthStatus("Přihlašování...");
