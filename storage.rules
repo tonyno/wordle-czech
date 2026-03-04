@@ -46,7 +46,11 @@ service cloud.firestore {
 
     match /savedGames/{document=**} {
       allow get, create, update: if true;
-    }  
+    }
+
+    match /migration/{document=**} {
+      allow get, create: if true;
+    }
 
   }
 }
