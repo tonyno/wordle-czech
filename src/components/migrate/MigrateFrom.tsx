@@ -13,6 +13,7 @@ const MigrateFrom = () => {
       const id = generateUUID();
       const data: Record<string, string> = {};
       for (const key of Object.keys(localStorage)) {
+        if (/^__.*__$/.test(key)) continue;
         data[key] = localStorage.getItem(key) ?? "";
       }
       try {
