@@ -251,6 +251,26 @@ const Settings = ({ onThemeChange }: PropType) => {
                 </Button>
               </Grid>
               <Grid item xs={12}>
+                <Box
+                  sx={{
+                    mt: 1,
+                    mb: 1,
+                    p: 1.5,
+                    backgroundColor: '#fdeded',
+                    border: '1px solid #f5c6cb',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: '#721c24' }}>
+                    Prosím, před přihlášením si zapište výše uvedený kód, který
+                    jednoznačně identifikuje vaše odehrané hry. V případě
+                    jakéhokoli problému se synchronizací bude možné vaše data
+                    obnovit pomocí tohoto kódu. Přihlášením se kód zpravidla
+                    změní.
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
                 <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
                   Nebo propojte svůj Google účet pro automatickou synchronizaci.
                 </Typography>

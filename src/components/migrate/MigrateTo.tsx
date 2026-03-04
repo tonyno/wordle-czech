@@ -45,14 +45,14 @@ const MigrateTo = () => {
       {status === "success" && (
         <>
           <Typography sx={{ m: 2 }} color="success.main">
-            Data byla úspěšně importována. Doporučujeme obnovit stránku.
+            Data byla úspěšně importována.
           </Typography>
           <Button
             variant="outlined"
             sx={{ m: 2 }}
-            onClick={() => window.location.reload()}
+            onClick={() => (window.location.href = "/")}
           >
-            Obnovit stránku
+            Přejít na hlavní stránku
           </Button>
         </>
       )}
