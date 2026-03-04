@@ -124,6 +124,7 @@ export const initializePlayer = async (): Promise<string> => {
   const oldUserId = settings.userId;
 
   const token = generateToken();
+  const migrationStart = performance.now();
 
   try {
     await createPlayer(token, {
@@ -144,8 +145,17 @@ export const initializePlayer = async (): Promise<string> => {
       await migrateLocalStorageToFirestore(token);
       setMigrationStatus("completed");
     }
+
+    const migrationDuration = performance.now() - migrationStart;
+    console.log(
+      `[Migration] Player creation & data migration completed in ${migrationDuration.toFixed(0)}ms (token: ${token})`
+    );
   } catch (err) {
-    console.error("Error during player creation/migration:", err);
+    const migrationDuration = performance.now() - migrationStart;
+    console.error(
+      `[Migration] Failed after ${migrationDuration.toFixed(0)}ms:`,
+      err
+    );
     // App still works from localStorage
   }
 
@@ -161,15 +171,25 @@ const migrateLocalStorageToFirestore = async (
 
   const entries = Object.entries(history);
   const gameType: GameType = GAME_TYPE_WORDLE5;
+  const startTime = performance.now();
+  let migratedCount = 0;
+  let skippedCount = 0;
+  let totalSizeBytes = 0;
 
   // Write games in chunks of 500 (Firestore batch limit)
   for (let i = 0; i < entries.length; i++) {
     const [key, item] = entries[i];
     const match = key.match(/^day(\d+)$/);
-    if (!match) continue;
+    if (!match) {
+      skippedCount++;
+      continue;
+    }
 
     const solutionIndex = parseInt(match[1], 10);
-    if (isNaN(solutionIndex)) continue;
+    if (isNaN(solutionIndex)) {
+      skippedCount++;
+      continue;
+    }
 
     const gameDoc: GameDoc = {
       gameType,
@@ -182,8 +202,11 @@ const migrateLocalStorageToFirestore = async (
       endTime: item.endTime || null,
     };
 
+    totalSizeBytes += JSON.stringify(gameDoc).length;
+
     try {
       await saveGame(token, gameType, solutionIndex, gameDoc);
+      migratedCount++;
     } catch (err) {
       console.error(`Error migrating game day${solutionIndex}:`, err);
     }
@@ -196,6 +219,7 @@ const migrateLocalStorageToFirestore = async (
       (a, b) => a + b,
       0
     );
+    totalSizeBytes += JSON.stringify(localStats.guessesDistribution).length;
     try {
       await updatePlayerStats(token, gameType, {
         guessesDistribution: localStats.guessesDistribution,
@@ -206,6 +230,12 @@ const migrateLocalStorageToFirestore = async (
       console.error("Error migrating stats:", err);
     }
   }
+
+  const duration = performance.now() - startTime;
+  const sizeKB = (totalSizeBytes / 1024).toFixed(1);
+  console.log(
+    `[Migration] Migrated ${migratedCount} games (${skippedCount} skipped) in ${duration.toFixed(0)}ms, total data size: ${sizeKB} KB`
+  );
 };
 
 export const loadTodaysGame = async (
