@@ -7,6 +7,7 @@ import {
   Grid,
   IconButton,
   Switch,
+  TextField,
   Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -14,7 +15,12 @@ import ShareIcon from "@mui/icons-material/Share";
 import * as React from "react";
 import { useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { signInWithGoogle, signOutUser } from "../../lib/authorization";
+import {
+  signInWithGoogle,
+  signOutUser,
+  sendEmailLink,
+  completeEmailLinkSignIn,
+} from "../../lib/authorization";
 
 import {
   SettingsItem,
@@ -40,10 +46,26 @@ const Settings = ({ onThemeChange }: PropType) => {
   const [tokenModalOpen, setTokenModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [googleAuthStatus, setGoogleAuthStatus] = useState<string>("");
+  const [email, setEmail] = useState("");
+  const [emailStatus, setEmailStatus] = useState<string>("");
 
   React.useEffect(() => {
     logMyEvent("settings");
-  }, []);
+
+    completeEmailLinkSignIn().then((result) => {
+      if (!result) return;
+      if (result.success) {
+        if (result.switchedToken) {
+          refreshToken();
+          setGoogleAuthStatus("E-mail propojen a sloučeno s existujícím účtem!");
+        } else {
+          setGoogleAuthStatus("E-mail propojen!");
+        }
+      } else {
+        setGoogleAuthStatus("Přihlášení e-mailem se nezdařilo.");
+      }
+    });
+  }, [refreshToken]);
 
   const save = (newData: SettingsItem) => {
     onThemeChange(newData);
@@ -239,9 +261,43 @@ const Settings = ({ onThemeChange }: PropType) => {
                     </Button>
                   </Box>
                 ) : (
-                  <Button variant="contained" onClick={handleGoogleLogin}>
-                    Login přes Google
-                  </Button>
+                  <>
+                    <Button variant="contained" onClick={handleGoogleLogin}>
+                      Login přes Google
+                    </Button>
+                    <Typography variant="body2" sx={{ mt: 2, mb: 1 }}>
+                      Nebo se přihlaste pomocí e-mailu:
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                      <TextField
+                        size="small"
+                        type="email"
+                        placeholder="vas@email.cz"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                      <Button
+                        variant="outlined"
+                        disabled={!email}
+                        onClick={async () => {
+                          setEmailStatus("Odesílání...");
+                          const ok = await sendEmailLink(email);
+                          setEmailStatus(
+                            ok
+                              ? "Odkaz odeslán! Zkontrolujte e-mail, případně složku spam."
+                              : "Odeslání se nezdařilo."
+                          );
+                        }}
+                      >
+                        Odeslat odkaz
+                      </Button>
+                    </Box>
+                    {emailStatus && (
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        {emailStatus}
+                      </Typography>
+                    )}
+                  </>
                 )}
                 {googleAuthStatus && (
                   <Typography variant="body2" sx={{ mt: 1 }}>
