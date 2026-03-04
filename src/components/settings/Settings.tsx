@@ -219,21 +219,9 @@ const Settings = ({ onThemeChange }: PropType) => {
                   Zadat kód z jiného zařízení
                 </Button>
               </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ maxWidth: "md", mt: "1rem" }}>
-          <CardContent>
-            <Grid container spacing={1}>
               <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom component="div">
-                  Přihlášení přes Google
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  Propojte svůj Google účet pro automatickou synchronizaci na všech zařízeních.
+                <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
+                  Nebo propojte svůj Google účet pro automatickou synchronizaci.
                 </Typography>
               </Grid>
               <Grid item xs={12}>
