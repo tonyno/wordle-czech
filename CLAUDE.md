@@ -60,9 +60,13 @@ Players are identified by a 10-char alphanumeric token stored in localStorage an
 
 ```
 players/{token}                              # PlayerDoc
-players/{token}/games/{gameId}               # GameDoc (gameId = "wordle5_day{N}")
+players/{token}/games/{gameType}             # AllGamesDoc (single doc with all games in `games` map)
 players/{token}/stats/{gameType}             # PlayerStats (gameType = "wordle5")
 ```
+
+### Game storage
+
+All games for a player+gameType are stored in a single Firestore document (`AllGamesDoc`). The `games` field is a map keyed by `day{N}` containing `GameDoc` objects. Individual game saves use field-level merge (`{ merge: true }`) for safe concurrent writes. localStorage `actualGameState` is still written as a cache layer.
 
 ### Key services
 

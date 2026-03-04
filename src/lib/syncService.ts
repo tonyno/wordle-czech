@@ -1,19 +1,20 @@
 import md5 from "md5";
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { Timestamp } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   createPlayer,
   GameDoc,
   GameType,
   generateToken,
+  getAllGames,
   getGame,
   getPlayer,
   mergeTokens,
+  saveAllGames,
   saveGame,
   updatePlayerStats,
   getPlayerStats,
 } from "./playerService";
-import { firestore } from "./settingsFirebase";
 import {
   GameStateHistory,
   getFinishedGameStatsFromLocalStorage,
@@ -174,11 +175,10 @@ const migrateLocalStorageToFirestore = async (
   const startTime = performance.now();
   let migratedCount = 0;
   let skippedCount = 0;
-  let totalSizeBytes = 0;
 
-  // Write games in chunks of 500 (Firestore batch limit)
-  for (let i = 0; i < entries.length; i++) {
-    const [key, item] = entries[i];
+  const games: Record<string, GameDoc> = {};
+
+  for (const [key, item] of entries) {
     const match = key.match(/^day(\d+)$/);
     if (!match) {
       skippedCount++;
@@ -191,7 +191,7 @@ const migrateLocalStorageToFirestore = async (
       continue;
     }
 
-    const gameDoc: GameDoc = {
+    games[key] = {
       gameType,
       solutionIndex,
       guesses: item.guesses || [],
@@ -201,15 +201,13 @@ const migrateLocalStorageToFirestore = async (
       startTime: item.startTime || null,
       endTime: item.endTime || null,
     };
+    migratedCount++;
+  }
 
-    totalSizeBytes += JSON.stringify(gameDoc).length;
-
-    try {
-      await saveGame(token, gameType, solutionIndex, gameDoc);
-      migratedCount++;
-    } catch (err) {
-      console.error(`Error migrating game day${solutionIndex}:`, err);
-    }
+  try {
+    await saveAllGames(token, gameType, games);
+  } catch (err) {
+    console.error("Error migrating games to Firestore:", err);
   }
 
   // Migrate stats
@@ -219,7 +217,6 @@ const migrateLocalStorageToFirestore = async (
       (a, b) => a + b,
       0
     );
-    totalSizeBytes += JSON.stringify(localStats.guessesDistribution).length;
     try {
       await updatePlayerStats(token, gameType, {
         guessesDistribution: localStats.guessesDistribution,
@@ -232,9 +229,8 @@ const migrateLocalStorageToFirestore = async (
   }
 
   const duration = performance.now() - startTime;
-  const sizeKB = (totalSizeBytes / 1024).toFixed(1);
   console.log(
-    `[Migration] Migrated ${migratedCount} games (${skippedCount} skipped) in ${duration.toFixed(0)}ms, total data size: ${sizeKB} KB`
+    `[Migration] Migrated ${migratedCount} games (${skippedCount} skipped) in ${duration.toFixed(0)}ms`
   );
 };
 
@@ -448,12 +444,10 @@ export const enterExternalToken = async (
 export const loadAllGamesFromFirestore = async (
   token: string
 ): Promise<GameStateHistory> => {
-  const gamesRef = collection(firestore, "players", token, "games");
-  const snap = await getDocs(gamesRef);
+  const allGamesDoc = await getAllGames(token, GAME_TYPE_WORDLE5);
+  if (!allGamesDoc) return {};
   const history: GameStateHistory = {};
-  snap.forEach((d) => {
-    const game = d.data() as GameDoc;
-    const key = "day" + game.solutionIndex;
+  for (const [key, game] of Object.entries(allGamesDoc.games)) {
     history[key] = {
       guesses: game.guesses,
       isGameWon: game.isGameWon,
@@ -462,7 +456,7 @@ export const loadAllGamesFromFirestore = async (
       startTime: game.startTime || undefined,
       endTime: game.endTime || undefined,
     };
-  });
+  }
   return history;
 };
 

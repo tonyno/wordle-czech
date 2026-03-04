@@ -1,12 +1,7 @@
 import {
-  collection,
   doc,
   getDoc,
-  getDocs,
-  query,
   setDoc,
-  where,
-  writeBatch,
   Timestamp,
 } from "firebase/firestore";
 import { firestore } from "./settingsFirebase";
@@ -43,6 +38,12 @@ export type PlayerStats = {
   guessesDistribution: number[];
   gamesPlayed: number;
   lastUpdated: Timestamp;
+};
+
+export type AllGamesDoc = {
+  gameType: GameType;
+  lastUpdated: Timestamp;
+  games: Record<string, GameDoc>;
 };
 
 const TOKEN_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -114,17 +115,46 @@ export const linkGoogleUid = async (
   await setDoc(doc(firestore, "googleUidToToken", uid), { token });
 };
 
+const allGamesDocRef = (token: string, gameType: GameType) =>
+  doc(firestore, "players", token, "games", gameType);
+
+export const getAllGames = async (
+  token: string,
+  gameType: GameType
+): Promise<AllGamesDoc | null> => {
+  const snap = await getDoc(allGamesDocRef(token, gameType));
+  return snap.exists() ? (snap.data() as AllGamesDoc) : null;
+};
+
 export const saveGame = async (
   token: string,
   gameType: GameType,
   solutionIndex: number,
   gameDoc: GameDoc
 ): Promise<void> => {
-  const id = gameId(gameType, solutionIndex);
+  const dayKey = `day${solutionIndex}`;
   await setDoc(
-    doc(firestore, "players", token, "games", id),
-    gameDoc
+    allGamesDocRef(token, gameType),
+    {
+      gameType,
+      lastUpdated: Timestamp.now(),
+      [`games.${dayKey}`]: gameDoc,
+    },
+    { merge: true }
   );
+};
+
+export const saveAllGames = async (
+  token: string,
+  gameType: GameType,
+  games: Record<string, GameDoc>
+): Promise<void> => {
+  const allGamesDoc: AllGamesDoc = {
+    gameType,
+    lastUpdated: Timestamp.now(),
+    games,
+  };
+  await setDoc(allGamesDocRef(token, gameType), allGamesDoc);
 };
 
 export const getGame = async (
@@ -132,11 +162,10 @@ export const getGame = async (
   gameType: GameType,
   solutionIndex: number
 ): Promise<GameDoc | null> => {
-  const id = gameId(gameType, solutionIndex);
-  const snap = await getDoc(
-    doc(firestore, "players", token, "games", id)
-  );
-  return snap.exists() ? (snap.data() as GameDoc) : null;
+  const allGames = await getAllGames(token, gameType);
+  if (!allGames) return null;
+  const dayKey = `day${solutionIndex}`;
+  return allGames.games[dayKey] || null;
 };
 
 export const getGamesRange = async (
@@ -146,18 +175,16 @@ export const getGamesRange = async (
   toDay: number
 ): Promise<Map<number, GameDoc>> => {
   const result = new Map<number, GameDoc>();
-  const gamesRef = collection(firestore, "players", token, "games");
-  const q = query(
-    gamesRef,
-    where("gameType", "==", gameType),
-    where("solutionIndex", ">=", fromDay),
-    where("solutionIndex", "<=", toDay)
-  );
-  const snap = await getDocs(q);
-  snap.forEach((d) => {
-    const game = d.data() as GameDoc;
-    result.set(game.solutionIndex, game);
-  });
+  const allGames = await getAllGames(token, gameType);
+  if (!allGames) return result;
+  for (const [key, game] of Object.entries(allGames.games)) {
+    const match = key.match(/^day(\d+)$/);
+    if (!match) continue;
+    const idx = parseInt(match[1], 10);
+    if (idx >= fromDay && idx <= toDay) {
+      result.set(idx, game);
+    }
+  }
   return result;
 };
 
@@ -186,77 +213,52 @@ export const mergeTokens = async (
   sourceToken: string,
   targetToken: string
 ): Promise<{ merged: number; conflicts: number }> => {
-  const sourceGamesRef = collection(
-    firestore,
-    "players",
-    sourceToken,
-    "games"
-  );
-  const sourceSnap = await getDocs(sourceGamesRef);
+  const sourceAllGames = await getAllGames(sourceToken, GAME_TYPE_WORDLE5);
+  const targetAllGames = await getAllGames(targetToken, GAME_TYPE_WORDLE5);
+
+  const sourceGames = sourceAllGames?.games || {};
+  const targetGames = targetAllGames?.games || {};
 
   let merged = 0;
   let conflicts = 0;
-  const batch = writeBatch(firestore);
+  const mergedGames: Record<string, GameDoc> = { ...targetGames };
 
-  for (const sourceDoc of sourceSnap.docs) {
-    const sourceGame = sourceDoc.data() as GameDoc;
-    const targetGameRef = doc(
-      firestore,
-      "players",
-      targetToken,
-      "games",
-      sourceDoc.id
-    );
-    const targetSnap = await getDoc(targetGameRef);
-
-    if (targetSnap.exists()) {
-      const targetGame = targetSnap.data() as GameDoc;
+  for (const [dayKey, sourceGame] of Object.entries(sourceGames)) {
+    const targetGame = targetGames[dayKey];
+    if (targetGame) {
       // Conflict resolution: win > loss; fewer guesses wins ties
-      const sourceWins = sourceGame.isGameWon;
-      const targetWins = targetGame.isGameWon;
-      if (sourceWins && !targetWins) {
-        batch.set(targetGameRef, sourceGame);
+      if (sourceGame.isGameWon && !targetGame.isGameWon) {
+        mergedGames[dayKey] = sourceGame;
         conflicts++;
-      } else if (sourceWins && targetWins) {
+      } else if (sourceGame.isGameWon && targetGame.isGameWon) {
         if (sourceGame.guesses.length < targetGame.guesses.length) {
-          batch.set(targetGameRef, sourceGame);
-          conflicts++;
-        } else {
-          conflicts++;
+          mergedGames[dayKey] = sourceGame;
         }
+        conflicts++;
       } else {
         conflicts++;
       }
     } else {
-      batch.set(targetGameRef, sourceGame);
+      mergedGames[dayKey] = sourceGame;
       merged++;
     }
   }
 
   if (merged > 0 || conflicts > 0) {
-    await batch.commit();
+    await saveAllGames(targetToken, GAME_TYPE_WORDLE5, mergedGames);
   }
 
-  // Merge stats
-  const sourceStats = await getPlayerStats(sourceToken, GAME_TYPE_WORDLE5);
-  const targetStats = await getPlayerStats(targetToken, GAME_TYPE_WORDLE5);
-  if (sourceStats && !targetStats) {
-    await updatePlayerStats(targetToken, GAME_TYPE_WORDLE5, sourceStats);
-  } else if (sourceStats && targetStats) {
-    // Recalculate stats from merged games
-    const allGames = await getDocs(
-      collection(firestore, "players", targetToken, "games")
-    );
-    const finishedGames: { isGameWon: boolean; numberOfGuesses: number }[] = [];
-    allGames.forEach((d) => {
-      const g = d.data() as GameDoc;
-      if (g.gameType === GAME_TYPE_WORDLE5 && (g.isGameWon || g.isGameLoose)) {
-        finishedGames.push({
-          isGameWon: g.isGameWon,
-          numberOfGuesses: g.guesses.length - 1,
-        });
-      }
-    });
+  // Recalculate stats from merged games
+  const finishedGames: { isGameWon: boolean; numberOfGuesses: number }[] = [];
+  for (const game of Object.values(mergedGames)) {
+    if (game.isGameWon || game.isGameLoose) {
+      finishedGames.push({
+        isGameWon: game.isGameWon,
+        numberOfGuesses: game.guesses.length - 1,
+      });
+    }
+  }
+  if (finishedGames.length > 0) {
     const dist = computeGuessDistribution(finishedGames);
     await updatePlayerStats(targetToken, GAME_TYPE_WORDLE5, {
       guessesDistribution: dist,
