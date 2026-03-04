@@ -46,13 +46,18 @@ service cloud.firestore {
     
     // New player collection - token as secret (knowing the path = having access)
     match /players/{token} {
-      allow read, write: if true;
+      allow get, create, update: if true;
       match /games/{gameId} {
-        allow read, write: if true;
+        allow get, create, update: if true;
       }
       match /stats/{gameType} {
-        allow read, write: if true;
+        allow get, create, update: if true;
       }
+    }
+
+    // Google UID to token mapping (for cross-device login)
+    match /googleUidToToken/{googleUid} {
+      allow get, create, update: if true;
     }
 
     match /dailyStats/{document=**} {

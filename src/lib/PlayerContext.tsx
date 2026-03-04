@@ -24,6 +24,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(!localToken);
 
   useEffect(() => {
+    // Skip automatic player initialization on /migrate_to — that page
+    // first restores localStorage from another environment before we
+    // should generate a token or migrate data to Firestore.
+    if (window.location.pathname === "/migrate_to") {
+      setLoading(false);
+      return;
+    }
+
     initializePlayer()
       .then((t) => {
         setTokenState(t);

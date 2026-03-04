@@ -94,15 +94,12 @@ export const getPlayer = async (
 export const getPlayerByGoogleUid = async (
   uid: string
 ): Promise<{ token: string; player: PlayerDoc } | null> => {
-  const q = query(
-    collection(firestore, "players"),
-    where("googleUid", "==", uid)
-  );
-  const snap = await getDocs(q);
-  console.log("SNAP: ", snap);
-  if (snap.empty) return null;
-  const docSnap = snap.docs[0];
-  return { token: docSnap.id, player: docSnap.data() as PlayerDoc };
+  const mappingSnap = await getDoc(doc(firestore, "googleUidToToken", uid));
+  if (!mappingSnap.exists()) return null;
+  const { token } = mappingSnap.data() as { token: string };
+  const player = await getPlayer(token);
+  if (!player) return null;
+  return { token, player };
 };
 
 export const linkGoogleUid = async (
@@ -114,6 +111,7 @@ export const linkGoogleUid = async (
     { googleUid: uid },
     { merge: true }
   );
+  await setDoc(doc(firestore, "googleUidToToken", uid), { token });
 };
 
 export const saveGame = async (
