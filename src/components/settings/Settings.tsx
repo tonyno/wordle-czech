@@ -28,6 +28,7 @@ import {
   saveSettings,
 } from "../../lib/localStorage";
 import { usePlayer } from "../../lib/PlayerContext";
+import { savePlayerSettings } from "../../lib/playerService";
 import { auth, logMyEvent } from "../../lib/settingsFirebase";
 import { canShare } from "../../lib/share";
 import { Cell } from "../grid/Cell";
@@ -71,6 +72,14 @@ const Settings = ({ onThemeChange }: PropType) => {
     onThemeChange(newData);
     saveSettings(newData);
     setData(newData);
+    if (token) {
+      savePlayerSettings(token, {
+        darkMode: newData.darkMode,
+        colorBlindMode: newData.colorBlindMode,
+        bigFont: newData.bigFont,
+        nickname: newData.nickname || "",
+      }).catch((err) => console.error("Error saving settings to Firestore:", err));
+    }
   };
 
   const changeDark = () => {

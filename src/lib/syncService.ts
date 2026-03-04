@@ -21,6 +21,7 @@ import {
   getSettings,
   loadGameStateFromLocalStorageNew,
   saveGameStateToLocalStorage,
+  saveSettings,
   updateFinishedGameStats,
 } from "./localStorage";
 import { PlayContext } from "./playContext";
@@ -58,6 +59,19 @@ const setMigrationStatus = (status: string): void => {
   localStorage.setItem(MIGRATION_KEY, status);
 };
 
+/** Sync settings from Firestore PlayerDoc to localStorage. */
+const syncSettingsFromPlayer = (player: import("./playerService").PlayerDoc): void => {
+  const current = getSettings(false);
+  const updated = {
+    ...current,
+    darkMode: player.darkMode,
+    colorBlindMode: player.colorBlindMode,
+    bigFont: player.bigFont,
+    nickname: player.nickname || current.nickname,
+  };
+  saveSettings(updated);
+};
+
 /** Wait for Firebase Auth to resolve the persisted session (resolves once). */
 const waitForAuthReady = (): Promise<void> =>
   new Promise((resolve) => {
@@ -67,7 +81,9 @@ const waitForAuthReady = (): Promise<void> =>
     });
   });
 
-export const initializePlayer = async (): Promise<string> => {
+export const initializePlayer = async (
+  onMigrating?: (migrating: boolean) => void
+): Promise<string> => {
   await waitForAuthReady();
   const googleUser = auth.currentUser;
   const googleUid = googleUser?.uid || null;
@@ -79,6 +95,7 @@ export const initializePlayer = async (): Promise<string> => {
     try {
       const player = await getPlayer(existingToken);
       if (player) {
+        syncSettingsFromPlayer(player);
         // Link Google UID if signed in but not yet linked
         if (googleUid && !player.googleUid) {
           await linkGoogleUid(existingToken, googleUid);
@@ -112,6 +129,7 @@ export const initializePlayer = async (): Promise<string> => {
     try {
       const existing = await getPlayerByGoogleUid(googleUid);
       if (existing) {
+        syncSettingsFromPlayer(existing.player);
         setToken(existing.token);
         return existing.token;
       }
@@ -143,8 +161,10 @@ export const initializePlayer = async (): Promise<string> => {
 
     // Migrate existing localStorage data to Firestore
     if (getMigrationStatus() !== "completed") {
+      onMigrating?.(true);
       await migrateLocalStorageToFirestore(token);
       setMigrationStatus("completed");
+      onMigrating?.(false);
     }
 
     const migrationDuration = performance.now() - migrationStart;

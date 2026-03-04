@@ -103,6 +103,13 @@ export const getPlayerByGoogleUid = async (
   return { token, player };
 };
 
+export const savePlayerSettings = async (
+  token: string,
+  settings: { darkMode: boolean; colorBlindMode: boolean; bigFont: boolean; nickname: string }
+): Promise<void> => {
+  await setDoc(doc(firestore, "players", token), settings, { merge: true });
+};
+
 export const linkGoogleUid = async (
   token: string,
   uid: string
@@ -138,7 +145,7 @@ export const saveGame = async (
     {
       gameType,
       lastUpdated: Timestamp.now(),
-      [`games.${dayKey}`]: gameDoc,
+      games: { [dayKey]: gameDoc },
     },
     { merge: true }
   );

@@ -1,4 +1,4 @@
-import { Box, IconButton, Link, Typography } from "@mui/material";
+import { Box, CircularProgress, IconButton, Link, Typography } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ShareIcon from "@mui/icons-material/Share";
 import { useState } from "react";
@@ -7,24 +7,47 @@ import { usePlayer } from "../lib/PlayerContext";
 import { canShare } from "../lib/share";
 
 const TokenDisplay = () => {
-  const { token } = usePlayer();
+  const { token, migrating } = usePlayer();
   const [copied, setCopied] = useState(false);
-  if (!token) return null;
+  if (!token && !migrating) return null;
 
   const handleCopy = () => {
+    if (!token) return;
     navigator.clipboard.writeText(token);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: "Hádej Slova - Můj kód",
-        text: `Můj kód pro synchronizaci: ${token}`,
-      });
-    }
+    if (!token || !navigator.share) return;
+    navigator.share({
+      title: "Hádej Slova - Můj kód",
+      text: `Můj kód pro synchronizaci: ${token}`,
+    });
   };
+
+  if (migrating) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 1,
+          py: 1,
+          px: 2,
+          mt: 2,
+          opacity: 0.7,
+          fontSize: "0.8rem",
+        }}
+      >
+        <CircularProgress size={14} />
+        <Typography variant="caption">
+          Ukládám odehrané hry na server…
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <>

@@ -4,12 +4,14 @@ import { initializePlayer, getToken } from "./syncService";
 type PlayerContextType = {
   token: string | null;
   loading: boolean;
+  migrating: boolean;
   refreshToken: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextType>({
   token: null,
   loading: true,
+  migrating: false,
   refreshToken: () => {},
 });
 
@@ -22,6 +24,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
   const [token, setTokenState] = useState<string | null>(localToken);
   // If we already have a local token, no need to block rendering
   const [loading, setLoading] = useState(!localToken);
+  const [migrating, setMigrating] = useState(false);
 
   useEffect(() => {
     // Skip automatic player initialization on /migrate_to — that page
@@ -32,7 +35,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    initializePlayer()
+    initializePlayer(setMigrating)
       .then((t) => {
         setTokenState(t);
       })
@@ -43,6 +46,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
       })
       .finally(() => {
         setLoading(false);
+        setMigrating(false);
       });
   }, []);
 
@@ -51,7 +55,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <PlayerContext.Provider value={{ token, loading, refreshToken }}>
+    <PlayerContext.Provider value={{ token, loading, migrating, refreshToken }}>
       {children}
     </PlayerContext.Provider>
   );
