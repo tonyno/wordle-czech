@@ -230,3 +230,24 @@ export const saveGamesForLoggedUser = async (loggedUserID: string) => {
     await setDoc(docRef, data);
   }
 };
+
+// Migration
+
+export const saveMigrationData = async (
+  guid: string,
+  data: Record<string, string>
+) => {
+  const docRef = doc(firestore, "migration", guid);
+  await setDoc(docRef, { data, createdAt: new Date() });
+};
+
+export const getMigrationData = async (
+  guid: string
+): Promise<Record<string, string> | null> => {
+  const docRef = doc(firestore, "migration", guid);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data().data;
+  }
+  return null;
+};

@@ -38,7 +38,11 @@ service cloud.firestore {
 
     match /savedGames/{document=**} {
       allow get, create, update: if true;
-    }  
+    }
+
+    match /migration/{document=**} {
+      allow get, create: if true;
+    }
     
     // New player collection - token as secret (knowing the path = having access)
     match /players/{token} {

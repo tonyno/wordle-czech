@@ -8,6 +8,8 @@ import {
 import { useMemo, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import DumpLocalStorage from "./components/debugTools/DumpLocalStorage";
+import MigrateFrom from "./components/migrate/MigrateFrom";
+import MigrateTo from "./components/migrate/MigrateTo";
 import Faq from "./components/faq/Faq";
 import IncomingFollowLink from "./components/follow/IncomingFollowLink";
 import HistoryPlay from "./components/HistoryPlay";
@@ -102,6 +104,8 @@ function App() {
                 element={<Settings onThemeChange={themeChange} />}
               />
               <Route path="/localstorage" element={<DumpLocalStorage />} />
+              <Route path="/migrate_from" element={<MigrateFrom />} />
+              <Route path="/migrate_to" element={<MigrateTo />} />
             </Routes>
             <TokenDisplay />
           </BrowserRouter>
