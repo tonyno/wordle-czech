@@ -1,0 +1,15 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "gameStats",
+      "fieldPath": "*",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "games",
+      "fieldPath": "*",
+      "indexes": []
+    }
+  ]
+}
