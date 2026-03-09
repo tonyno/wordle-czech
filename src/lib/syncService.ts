@@ -23,6 +23,8 @@ import {
   saveGameStateToLocalStorage,
   saveSettings,
   updateFinishedGameStats,
+  gameStateKeyNew,
+  gameStatisticsKey,
 } from "./localStorage";
 import { PlayContext } from "./playContext";
 import {
@@ -100,6 +102,7 @@ export const initializePlayer = async (
         if (googleUid && !player.googleUid) {
           await linkGoogleUid(existingToken, googleUid);
         }
+        await syncFirestoreToLocalStorage(existingToken);
         return existingToken;
       }
     } catch (err) {
@@ -131,6 +134,7 @@ export const initializePlayer = async (
       if (existing) {
         syncSettingsFromPlayer(existing.player);
         setToken(existing.token);
+        await syncFirestoreToLocalStorage(existing.token);
         return existing.token;
       }
     } catch (err) {
@@ -141,6 +145,16 @@ export const initializePlayer = async (
   // 3. Check for old userId — migration path
   const settings = getSettings(false);
   const oldUserId = settings.userId;
+
+  // Backup localStorage data before generating new token, in case migration goes wrong
+  const existingGameState = localStorage.getItem(gameStateKeyNew);
+  const existingStats = localStorage.getItem(gameStatisticsKey);
+  if (existingGameState) {
+    localStorage.setItem("backup_actualGameState", existingGameState);
+  }
+  if (existingStats) {
+    localStorage.setItem("backup_stats", existingStats);
+  }
 
   const token = generateToken();
   const migrationStart = performance.now();
@@ -449,11 +463,35 @@ export const enterExternalToken = async (
   try {
     const result = await mergeTokens(currentToken, enteredToken);
     totalGames += result.merged; // add newly merged games to total
-    // Switch to new token
+    // Switch to new token and sync Firestore data to localStorage
     setToken(enteredToken);
+    await syncFirestoreToLocalStorage(enteredToken);
     return { success: true, totalGames, merged: result.merged, conflicts: result.conflicts };
   } catch (err) {
     return { success: false, totalGames: 0, merged: 0, conflicts: 0, error: "Chyba při slučování dat." };
+  }
+};
+
+/**
+ * Syncs Firestore games and stats into localStorage so it serves
+ * as a reliable offline fallback. Merges games (Firestore wins on conflict).
+ */
+export const syncFirestoreToLocalStorage = async (token: string): Promise<void> => {
+  try {
+    const firestoreGames = await loadAllGamesFromFirestore(token);
+    const localRaw = localStorage.getItem(gameStateKeyNew);
+    const localGames = localRaw ? JSON.parse(localRaw) : {};
+    const merged = { ...localGames, ...firestoreGames };
+    localStorage.setItem(gameStateKeyNew, JSON.stringify(merged));
+
+    const firestoreStats = await getPlayerStats(token, GAME_TYPE_WORDLE5);
+    if (firestoreStats) {
+      localStorage.setItem(gameStatisticsKey, JSON.stringify({
+        guessesDistribution: firestoreStats.guessesDistribution,
+      }));
+    }
+  } catch (err) {
+    console.error("syncFirestoreToLocalStorage failed, localStorage unchanged:", err);
   }
 };
 

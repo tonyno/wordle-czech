@@ -8,7 +8,7 @@ import {
 import { auth } from "./settingsFirebase";
 import { getPlayerByGoogleUid, linkGoogleUid } from "./playerService";
 import { mergeTokens } from "./playerService";
-import { getToken, setToken } from "./syncService";
+import { getToken, setToken, syncFirestoreToLocalStorage } from "./syncService";
 
 export const signInWithGoogle = async (): Promise<{
   success: boolean;
@@ -28,6 +28,7 @@ export const signInWithGoogle = async (): Promise<{
       if (existing.token !== currentToken) {
         await mergeTokens(currentToken, existing.token);
         setToken(existing.token);
+        await syncFirestoreToLocalStorage(existing.token);
         return { success: true, switchedToken: existing.token };
       }
       return { success: true };
@@ -92,6 +93,7 @@ export const completeEmailLinkSignIn = async (): Promise<{
       if (existing.token !== currentToken) {
         await mergeTokens(currentToken, existing.token);
         setToken(existing.token);
+        await syncFirestoreToLocalStorage(existing.token);
         return { success: true, switchedToken: existing.token };
       }
       return { success: true };
