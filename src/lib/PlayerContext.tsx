@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { initializePlayer, getToken } from "./syncService";
+import { logLocalStorageReport, logError } from "./logService";
 
 type PlayerContextType = {
   token: string | null;
@@ -35,12 +36,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
+    logLocalStorageReport();
+
     initializePlayer(setMigrating)
       .then((t) => {
         setTokenState(t);
       })
       .catch((err) => {
-        console.error("Error initializing player:", err);
+        logError("Error initializing player", { error: String(err) });
         const local = getToken();
         if (local) setTokenState(local);
       })

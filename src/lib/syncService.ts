@@ -33,6 +33,7 @@ import {
 } from "./dataAdapter";
 import { PlayState } from "./statuses";
 import { auth } from "./settingsFirebase";
+import { logError, logInfo } from "./logService";
 import { onAuthStateChanged } from "firebase/auth";
 import { getPlayerByGoogleUid, linkGoogleUid } from "./playerService";
 import {
@@ -83,6 +84,25 @@ const waitForAuthReady = (): Promise<void> =>
     });
   });
 
+/**
+ * Restore localStorage game data from backup if the main key is empty
+ * but a backup exists (written during initial migration attempt).
+ */
+const restoreFromBackupIfNeeded = (): void => {
+  const current = localStorage.getItem(gameStateKeyNew);
+  const backup = localStorage.getItem("backup_actualGameState");
+  if ((!current || current === "{}") && backup) {
+    logInfo("[Migration] Restoring game state from backup");
+    localStorage.setItem(gameStateKeyNew, backup);
+  }
+  const currentStats = localStorage.getItem(gameStatisticsKey);
+  const backupStats = localStorage.getItem("backup_stats");
+  if (!currentStats && backupStats) {
+    logInfo("[Migration] Restoring stats from backup");
+    localStorage.setItem(gameStatisticsKey, backupStats);
+  }
+};
+
 export const initializePlayer = async (
   onMigrating?: (migrating: boolean) => void
 ): Promise<string> => {
@@ -102,11 +122,24 @@ export const initializePlayer = async (
         if (googleUid && !player.googleUid) {
           await linkGoogleUid(existingToken, googleUid);
         }
+        // Retry migration if it wasn't completed previously
+        if (getMigrationStatus() !== "completed") {
+          try {
+            restoreFromBackupIfNeeded();
+            onMigrating?.(true);
+            await migrateLocalStorageToFirestore(existingToken);
+            setMigrationStatus("completed");
+            onMigrating?.(false);
+          } catch (err) {
+            logError("Migration retry failed", { error: String(err) });
+            onMigrating?.(false);
+          }
+        }
         await syncFirestoreToLocalStorage(existingToken);
         return existingToken;
       }
     } catch (err) {
-      console.error("Error verifying player, continuing with token:", err);
+      logError("Error verifying player, continuing with token", { error: String(err) });
       return existingToken;
     }
     // Player doesn't exist in Firestore — recreate
@@ -121,8 +154,18 @@ export const initializePlayer = async (
       if (googleUid) {
         await linkGoogleUid(existingToken, googleUid);
       }
+      // Retry migration after recreating player doc
+      if (getMigrationStatus() !== "completed") {
+        try {
+          restoreFromBackupIfNeeded();
+          await migrateLocalStorageToFirestore(existingToken);
+          setMigrationStatus("completed");
+        } catch (err) {
+          logError("Migration retry after recreate failed", { error: String(err) });
+        }
+      }
     } catch (err) {
-      console.error("Error recreating player:", err);
+      logError("Error recreating player", { error: String(err) });
     }
     return existingToken;
   }
@@ -138,7 +181,7 @@ export const initializePlayer = async (
         return existing.token;
       }
     } catch (err) {
-      console.error("Error looking up player by Google UID:", err);
+      logError("Error looking up player by Google UID", { error: String(err) });
     }
   }
 
@@ -182,15 +225,16 @@ export const initializePlayer = async (
     }
 
     const migrationDuration = performance.now() - migrationStart;
-    console.log(
-      `[Migration] Player creation & data migration completed in ${migrationDuration.toFixed(0)}ms (token: ${token})`
-    );
+    logInfo("[Migration] Player creation & data migration completed", {
+      durationMs: Math.round(migrationDuration),
+      token,
+    });
   } catch (err) {
     const migrationDuration = performance.now() - migrationStart;
-    console.error(
-      `[Migration] Failed after ${migrationDuration.toFixed(0)}ms:`,
-      err
-    );
+    logError("[Migration] Failed", {
+      durationMs: Math.round(migrationDuration),
+      error: String(err),
+    });
     // App still works from localStorage
   }
 
@@ -241,7 +285,7 @@ const migrateLocalStorageToFirestore = async (
   try {
     await saveAllGames(token, gameType, games);
   } catch (err) {
-    console.error("Error migrating games to Firestore:", err);
+    logError("Error migrating games to Firestore", { error: String(err) });
   }
 
   // Migrate stats
@@ -258,14 +302,16 @@ const migrateLocalStorageToFirestore = async (
         lastUpdated: Timestamp.now(),
       });
     } catch (err) {
-      console.error("Error migrating stats:", err);
+      logError("Error migrating stats", { error: String(err) });
     }
   }
 
   const duration = performance.now() - startTime;
-  console.log(
-    `[Migration] Migrated ${migratedCount} games (${skippedCount} skipped) in ${duration.toFixed(0)}ms`
-  );
+  logInfo("[Migration] Migration complete", {
+    migratedCount,
+    skippedCount,
+    durationMs: Math.round(duration),
+  });
 };
 
 export const loadTodaysGame = async (
@@ -290,7 +336,7 @@ export const loadTodaysGame = async (
       };
     }
   } catch (err) {
-    console.error("Error loading game from Firestore:", err);
+    logError("Error loading game from Firestore", { error: String(err) });
   }
   return null;
 };
@@ -402,7 +448,7 @@ export const saveGuess = async (
   try {
     await saveGameToFirestore(token, gameDoc);
   } catch (err) {
-    console.error("Error saving game to Firestore:", err);
+    logError("Error saving game to Firestore", { error: String(err) });
     errors.push("Firestore game save failed");
   }
 
@@ -423,7 +469,7 @@ export const saveGuess = async (
     try {
       await updateAllStats(token, isGameWon, numberOfGuesses);
     } catch (err) {
-      console.error("Error updating player stats:", err);
+      logError("Error updating player stats", { error: String(err) });
       errors.push("Stats update failed");
     }
   }
@@ -491,7 +537,7 @@ export const syncFirestoreToLocalStorage = async (token: string): Promise<void> 
       }));
     }
   } catch (err) {
-    console.error("syncFirestoreToLocalStorage failed, localStorage unchanged:", err);
+    logError("syncFirestoreToLocalStorage failed, localStorage unchanged", { error: String(err) });
   }
 };
 
@@ -503,19 +549,50 @@ export const loadAllGamesFromFirestore = async (
   token: string
 ): Promise<GameStateHistory> => {
   const allGamesDoc = await getAllGames(token, GAME_TYPE_WORDLE5);
-  if (!allGamesDoc) return {};
-  const history: GameStateHistory = {};
-  for (const [key, game] of Object.entries(allGamesDoc.games)) {
-    history[key] = {
-      guesses: game.guesses,
-      isGameWon: game.isGameWon,
-      isGameLoose: game.isGameLoose,
-      solutionMd5: game.solutionMd5,
-      startTime: game.startTime || undefined,
-      endTime: game.endTime || undefined,
-    };
+  const firestoreHistory: GameStateHistory = {};
+  if (allGamesDoc) {
+    for (const [key, game] of Object.entries(allGamesDoc.games)) {
+      firestoreHistory[key] = {
+        guesses: game.guesses,
+        isGameWon: game.isGameWon,
+        isGameLoose: game.isGameLoose,
+        solutionMd5: game.solutionMd5,
+        startTime: game.startTime || undefined,
+        endTime: game.endTime || undefined,
+      };
+    }
   }
-  return history;
+  const firestoreKeyCount = Object.keys(firestoreHistory).length;
+
+  // Merge with localStorage (Firestore wins on conflicts)
+  const localRaw = localStorage.getItem(gameStateKeyNew);
+  const localGames: GameStateHistory = localRaw ? JSON.parse(localRaw) : {};
+  const merged = { ...localGames, ...firestoreHistory };
+
+  // If local had extra games, save merged result back to Firestore
+  if (Object.keys(merged).length > firestoreKeyCount) {
+    try {
+      const gameDocs: Record<string, GameDoc> = {};
+      for (const [key, game] of Object.entries(merged)) {
+        const solutionIndex = parseInt(key.replace("day", ""), 10);
+        gameDocs[key] = {
+          guesses: game.guesses,
+          isGameWon: game.isGameWon ?? false,
+          isGameLoose: game.isGameLoose ?? false,
+          solutionMd5: game.solutionMd5 ?? "",
+          startTime: game.startTime ?? null,
+          endTime: game.endTime ?? null,
+          gameType: GAME_TYPE_WORDLE5,
+          solutionIndex,
+        };
+      }
+      await saveAllGames(token, GAME_TYPE_WORDLE5, gameDocs);
+    } catch (err) {
+      logError("Failed to sync merged games to Firestore", { error: String(err) });
+    }
+  }
+
+  return merged;
 };
 
 /**
@@ -542,7 +619,7 @@ export const useGameHistory = (
         }
       })
       .catch((err) => {
-        console.error("Error loading games from Firestore:", err);
+        logError("Error loading games from Firestore", { error: String(err) });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -585,7 +662,7 @@ export const usePersonalStats = (
         }
       })
       .catch((err) => {
-        console.error("Error loading stats from Firestore:", err);
+        logError("Error loading stats from Firestore", { error: String(err) });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

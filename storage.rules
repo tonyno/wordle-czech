@@ -60,6 +60,11 @@ service cloud.firestore {
       allow get, create, update: if true;
     }
 
+    // Logs collection - write-only per player (token as secret)
+    match /logs/{token}/entries/{entryId} {
+      allow create: if true;
+    }
+
     match /dailyStats/{document=**} {
       allow read: if true;
     }
