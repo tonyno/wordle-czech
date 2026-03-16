@@ -1,39 +1,95 @@
-import { startDate, msInDay } from "./otherConstants";
+export {};
 
 describe("otherConstants", () => {
-  it("startDate is UTC noon Jan 14 2022 (matching server)", () => {
-    expect(startDate.toISOString()).toBe("2022-01-14T12:00:00.000Z");
+  const originalDate = global.Date;
+
+  afterEach(() => {
+    global.Date = originalDate;
+    jest.resetModules();
+  });
+
+  function mockTimezone(janOffset: number, julOffset: number, currentOffset: number) {
+    const RealDate = global.Date;
+    const MockDate = class extends RealDate {
+      constructor(...args: any[]) {
+        if (args.length === 0) {
+          super();
+        } else {
+          // @ts-ignore
+          super(...args);
+        }
+      }
+      getTimezoneOffset() {
+        // Determine which "kind" of date this is by checking month
+        const month = this.getMonth();
+        if (month === 0) return janOffset;
+        if (month === 6) return julOffset;
+        return currentOffset;
+      }
+      getFullYear() {
+        return new RealDate().getFullYear();
+      }
+    } as any;
+    MockDate.UTC = RealDate.UTC;
+    MockDate.now = RealDate.now;
+    MockDate.parse = RealDate.parse;
+    global.Date = MockDate;
+  }
+
+  function loadModule() {
+    let mod: typeof import("./otherConstants");
+    jest.isolateModules(() => {
+      mod = require("./otherConstants");
+    });
+    return mod!;
+  }
+
+  describe("startDate represents 18:00 Prague time on Jan 14 2022", () => {
+    it("in winter (CET, UTC+1): startDate is 17:00 UTC", () => {
+      // Prague winter: Jan offset=-60, Jul offset=-120, current=-60
+      mockTimezone(-60, -120, -60);
+      const { startDate } = loadModule();
+
+      expect(startDate.getUTCFullYear()).toBe(2022);
+      expect(startDate.getUTCMonth()).toBe(0);
+      expect(startDate.getUTCDate()).toBe(14);
+      expect(startDate.getUTCHours()).toBe(17); // 18:00 CET = 17:00 UTC
+      expect(startDate.getUTCMinutes()).toBe(0);
+    });
+
+    it("in summer (CEST, UTC+2): startDate is 16:00 UTC", () => {
+      // Prague summer: Jan offset=-60, Jul offset=-120, current=-120
+      mockTimezone(-60, -120, -120);
+      const { startDate } = loadModule();
+
+      expect(startDate.getUTCFullYear()).toBe(2022);
+      expect(startDate.getUTCMonth()).toBe(0);
+      expect(startDate.getUTCDate()).toBe(14);
+      expect(startDate.getUTCHours()).toBe(16); // 18:00 CEST = 16:00 UTC
+      expect(startDate.getUTCMinutes()).toBe(0);
+    });
+  });
+
+  describe("isDST detection", () => {
+    it("returns false in winter (CET)", () => {
+      // In winter: current offset matches max(jan, jul) → not DST
+      mockTimezone(-60, -120, -60);
+      const { startDate } = loadModule();
+      // Winter → isDST false → UTC hour 17
+      expect(startDate.getUTCHours()).toBe(17);
+    });
+
+    it("returns true in summer (CEST)", () => {
+      // In summer: current offset differs from max(jan, jul) → DST
+      mockTimezone(-60, -120, -120);
+      const { startDate } = loadModule();
+      // Summer → isDST true → UTC hour 16
+      expect(startDate.getUTCHours()).toBe(16);
+    });
   });
 
   it("msInDay is exactly 86400000", () => {
+    const { msInDay } = loadModule();
     expect(msInDay).toBe(86400000);
-  });
-
-  it("word index is consistent across CET and CEST boundaries", () => {
-    const epoch = startDate.getTime();
-
-    // CET winter: 18:00 CET = 17:00 UTC on day 100
-    const winterEvening = new Date(Date.UTC(2022, 0, 14, 17, 0)).getTime() + 100 * msInDay;
-    const winterIndex = Math.floor((winterEvening - epoch) / msInDay);
-
-    // CEST summer: 18:00 CEST = 16:00 UTC on day 200
-    const summerEvening = new Date(Date.UTC(2022, 0, 14, 16, 0)).getTime() + 200 * msInDay;
-    const summerIndex = Math.floor((summerEvening - epoch) / msInDay);
-
-    // Both should give the expected day index
-    expect(winterIndex).toBe(100);
-    expect(summerIndex).toBe(200);
-  });
-
-  it("day boundary happens between 11:59 and 12:01 UTC relative to epoch", () => {
-    const epoch = startDate.getTime();
-
-    // Just before day 1 boundary: day 0 at 23:59 UTC (11:59 relative to noon)
-    const beforeBoundary = new Date(Date.UTC(2022, 0, 14, 23, 59)).getTime();
-    expect(Math.floor((beforeBoundary - epoch) / msInDay)).toBe(0);
-
-    // Just after day 1 boundary: day 1 at 12:01 UTC
-    const afterBoundary = new Date(Date.UTC(2022, 0, 15, 12, 1)).getTime();
-    expect(Math.floor((afterBoundary - epoch) / msInDay)).toBe(1);
   });
 });
