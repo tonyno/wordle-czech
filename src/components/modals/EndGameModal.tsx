@@ -1,3 +1,4 @@
+import CloseIcon from "@mui/icons-material/Close";
 import ShareIcon from "@mui/icons-material/Share";
 import ThumbDownIcon from "@mui/icons-material/ThumbDown";
 import ThumbUpIcon from "@mui/icons-material/ThumbUp";
@@ -17,6 +18,7 @@ import { PlayContext } from "../../lib/playContext";
 import { canShare, shareStatus } from "../../lib/share";
 import { PlayState } from "../../lib/statuses";
 import { msToMinAndSeconds } from "../../lib/timeFunctions";
+import { SURVEY_ENABLED, SURVEY_URL } from "../../constants/survey";
 import { MiniGrid } from "../mini-grid/MiniGrid";
 
 type Props = {
@@ -37,6 +39,7 @@ const EndGameModal = ({
   gameDurationMs,
 }: Props) => {
   const [shareNotification, setShareNotification] = useState(false);
+  const [surveyDismissed, setSurveyDismissed] = useState(false);
 
   return (
     <Dialog
@@ -155,6 +158,97 @@ const EndGameModal = ({
             Okno zavřete kliknutím mimo okno.
           </Typography>
         </Box>
+        {SURVEY_ENABLED && (() => {
+          const closed = surveyDismissed || !!localStorage.getItem("surveyClosed");
+          return closed ? (
+            <Box sx={{ mt: 1.5, textAlign: "center" }}>
+              <Link
+                href={SURVEY_URL}
+                target="_blank"
+                rel="noopener"
+                sx={{
+                  fontSize: "0.7rem",
+                  color: "text.secondary",
+                  textDecoration: "none",
+                  "&:hover": { textDecoration: "underline" },
+                }}
+              >
+                Vyplnit dotazník na nový projekt (díky moc!)
+              </Link>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                mt: 2,
+                textAlign: "center",
+                position: "relative",
+                background:
+                  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                borderRadius: 2,
+                p: 2,
+                animation:
+                  "surveyPulse 1.5s ease-in-out infinite, surveyShimmer 3s linear infinite",
+                "@keyframes surveyPulse": {
+                  "0%, 100%": {
+                    boxShadow: "0 0 0 0 rgba(102, 126, 234, 0.5)",
+                    transform: "scale(1)",
+                  },
+                  "50%": {
+                    boxShadow: "0 0 12px 6px rgba(102, 126, 234, 0)",
+                    transform: "scale(1.02)",
+                  },
+                },
+                "@keyframes surveyShimmer": {
+                  "0%": { backgroundPosition: "0% 50%" },
+                  "50%": { backgroundPosition: "100% 50%" },
+                  "100%": { backgroundPosition: "0% 50%" },
+                },
+                backgroundSize: "200% 200%",
+              }}
+            >
+              <IconButton
+                size="small"
+                onClick={() => {
+                  localStorage.setItem("surveyClosed", "true");
+                  setSurveyDismissed(true);
+                }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  color: "rgba(255,255,255,0.7)",
+                  "&:hover": { color: "#fff" },
+                }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+              <Typography
+                variant="body1"
+                sx={{ fontWeight: "bold", color: "#fff", mb: 1 }}
+              >
+                Pomoz mi s novým projektem!
+              </Typography>
+              <Button
+                variant="contained"
+                href={SURVEY_URL}
+                target="_blank"
+                rel="noopener"
+                sx={{
+                  backgroundColor: "#fff",
+                  color: "#764ba2",
+                  fontWeight: "bold",
+                  textTransform: "none",
+                  fontSize: "1rem",
+                  px: 3,
+                  whiteSpace: "nowrap",
+                  "&:hover": { backgroundColor: "#f0e6ff" },
+                }}
+              >
+                Vyplnit krátký dotazník →
+              </Button>
+            </Box>
+          );
+        })()}
       </DialogContent>
     </Dialog>
   );

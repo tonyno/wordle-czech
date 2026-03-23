@@ -1,5 +1,6 @@
 import MenuIcon from "@mui/icons-material/Menu";
-import { Avatar, Divider, useTheme } from "@mui/material";
+import PollIcon from "@mui/icons-material/Poll";
+import { Avatar, Divider, ListItemIcon, ListItemText, useTheme } from "@mui/material";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -13,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { signOutUser } from "../../lib/authorization";
 import { ApplicationContext } from "../../lib/playContext";
 import { auth } from "../../lib/settingsFirebase";
+import { SURVEY_ENABLED, SURVEY_URL } from "../../constants/survey";
 import CountDownTimer from "../counter/CountDownTimer";
 import { AboutModal } from "../modals/AboutModal";
 import { InfoModal } from "../modals/InfoModal";
@@ -156,6 +158,19 @@ const TopMenu = ({ appContext, differentTopMessage }: Props) => {
                 >
                   Nastavení
                 </MenuItem>
+                {SURVEY_ENABLED && (
+                  <MenuItem
+                    onClick={() => {
+                      window.open(SURVEY_URL, "_blank", "noopener");
+                      handleClose();
+                    }}
+                  >
+                    <ListItemIcon>
+                      <PollIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Dotazník nový projekt</ListItemText>
+                  </MenuItem>
+                )}
                 <MenuItem
                   onClick={() => {
                     setIsAboutModalOpen(true);
