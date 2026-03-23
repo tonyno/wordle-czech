@@ -183,11 +183,12 @@ const EndGameModal = ({
                 textAlign: "center",
                 position: "relative",
                 background:
-                  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                  "linear-gradient(135deg, #667eea, #764ba2, #c0392b, #764ba2, #667eea)",
+                backgroundSize: "400% 400%",
                 borderRadius: 2,
                 p: 2,
                 animation:
-                  "surveyPulse 1.5s ease-in-out infinite, surveyShimmer 3s linear infinite",
+                  "surveyPulse 1.5s ease-in-out infinite, surveyGradient 4s ease infinite",
                 "@keyframes surveyPulse": {
                   "0%, 100%": {
                     boxShadow: "0 0 0 0 rgba(102, 126, 234, 0.5)",
@@ -198,12 +199,11 @@ const EndGameModal = ({
                     transform: "scale(1.02)",
                   },
                 },
-                "@keyframes surveyShimmer": {
+                "@keyframes surveyGradient": {
                   "0%": { backgroundPosition: "0% 50%" },
                   "50%": { backgroundPosition: "100% 50%" },
                   "100%": { backgroundPosition: "0% 50%" },
                 },
-                backgroundSize: "200% 200%",
               }}
             >
               <IconButton
@@ -224,6 +224,7 @@ const EndGameModal = ({
               </IconButton>
               <Typography
                 variant="body1"
+                fontSize="0.875rem"
                 sx={{ fontWeight: "bold", color: "#fff", mb: 1 }}
               >
                 Pomoz mi s novým projektem!
@@ -238,13 +239,13 @@ const EndGameModal = ({
                   color: "#764ba2",
                   fontWeight: "bold",
                   textTransform: "none",
-                  fontSize: "1rem",
+                  fontSize: "0.875rem",
                   px: 3,
                   whiteSpace: "nowrap",
                   "&:hover": { backgroundColor: "#f0e6ff" },
                 }}
               >
-                Vyplnit krátký dotazník →
+                Vyplnit 5min dotazník
               </Button>
             </Box>
           );
