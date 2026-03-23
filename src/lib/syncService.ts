@@ -433,27 +433,26 @@ export const saveGuess = async (
     isGameWon || isGameLoose ? endTime : undefined
   );
 
-  // 2. Save to Firestore (new player model)
-  const gameDoc: GameDoc = {
-    gameType: GAME_TYPE_WORDLE5,
-    solutionIndex: playContext.solutionIndex,
-    guesses,
-    isGameWon,
-    isGameLoose,
-    solutionMd5: md5(playContext.solution),
-    startTime: startTime || null,
-    endTime: endTime || null,
-  };
-
-  try {
-    await saveGameToFirestore(token, gameDoc);
-  } catch (err) {
-    logError("Error saving game to Firestore", { error: String(err) });
-    errors.push("Firestore game save failed");
-  }
-
-  // 3. On game end, do legacy writes + stats update
+  // 2. On game end, save to Firestore + legacy writes + stats update
   if (isGameWon || isGameLoose) {
+    const gameDoc: GameDoc = {
+      gameType: GAME_TYPE_WORDLE5,
+      solutionIndex: playContext.solutionIndex,
+      guesses,
+      isGameWon,
+      isGameLoose,
+      solutionMd5: md5(playContext.solution),
+      startTime: startTime || null,
+      endTime: endTime || null,
+    };
+
+    try {
+      await saveGameToFirestore(token, gameDoc);
+    } catch (err) {
+      logError("Error saving game to Firestore", { error: String(err) });
+      errors.push("Firestore game save failed");
+    }
+
     const numberOfGuesses = guesses.length - 1;
     const duration =
       startTime && endTime ? endTime - startTime : undefined;
