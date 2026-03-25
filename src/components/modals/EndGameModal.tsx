@@ -18,7 +18,7 @@ import { PlayContext } from "../../lib/playContext";
 import { canShare, shareStatus } from "../../lib/share";
 import { PlayState } from "../../lib/statuses";
 import { msToMinAndSeconds } from "../../lib/timeFunctions";
-import { SURVEY_ENABLED, SURVEY_URL } from "../../constants/survey";
+import { SURVEY_ENABLED, SURVEY_URL, SURVEY_CLOSED_KEY } from "../../constants/survey";
 import { MiniGrid } from "../mini-grid/MiniGrid";
 
 type Props = {
@@ -159,7 +159,7 @@ const EndGameModal = ({
           </Typography>
         </Box>
         {SURVEY_ENABLED && (() => {
-          const closed = surveyDismissed || !!localStorage.getItem("surveyClosed");
+          const closed = surveyDismissed || !!localStorage.getItem(SURVEY_CLOSED_KEY);
           return closed ? (
             <Box sx={{ mt: 1.5, textAlign: "center" }}>
               <Link
@@ -209,7 +209,7 @@ const EndGameModal = ({
               <IconButton
                 size="small"
                 onClick={() => {
-                  localStorage.setItem("surveyClosed", "true");
+                  localStorage.setItem(SURVEY_CLOSED_KEY, "true");
                   setSurveyDismissed(true);
                 }}
                 sx={{
